@@ -1,0 +1,2 @@
+﻿pages/Admissions/calendar.vue(61,30): error TS2307: Cannot find module '~/components/Admissions/EventDetailModal.vue' or its corresponding type declarations.
+pages/Admissions/calendar.vue(62,33): error TS2307: Cannot find module '~/components/Admissions/ScheduleConfigModal.vue' or its corresponding type declarations.

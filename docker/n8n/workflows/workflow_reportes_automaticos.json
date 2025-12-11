@@ -1,0 +1,202 @@
+{
+  "name": "Reportes Automatizados Programados",
+  "nodes": [
+    {
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [300, 200],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "dayOfWeek",
+              "hours": {
+                "hour": 8,
+                "minute": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Generate Monthly Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 150],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.saludlaboral.pe/api/analytics/reports",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "reportType",
+              "value": "monthly_exams"
+            },
+            {
+              "name": "startDate",
+              "value": "={{$json.lastMonthStart}}"
+            },
+            {
+              "name": "endDate",
+              "value": "={{$json.lastMonthEnd}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Calculate Dates",
+      "type": "n8n-nodes-base.function",
+      "position": [500, 300],
+      "parameters": {
+        "functionCode": "const now = new Date();\nconst firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);\nconst lastDay = new Date(now.getFullYear(), now.getMonth(), 0);\n\nreturn {\n  lastMonthStart: firstDay.toISOString().split('T')[0],\n  lastMonthEnd: lastDay.toISOString().split('T')[0]\n};"
+      }
+    },
+    {
+      "name": "Generate Executive Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 150],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.saludlaboral.pe/api/analytics/dashboards?period=month",
+        "authentication": "genericCredentialType"
+      }
+    },
+    {
+      "name": "Create PDF Report",
+      "type": "n8n-nodes-base.pdf",
+      "position": [900, 150],
+      "parameters": {
+        "operation": "fromHtml",
+        "html": "={{$json.dashboardHtml}}",
+        "options": {
+          "format": "A4",
+          "printBackground": true
+        }
+      }
+    },
+    {
+      "name": "Build HTML Report",
+      "type": "n8n-nodes-base.function",
+      "position": [700, 300],
+      "parameters": {
+        "functionCode": "const dashboard = $input.first().json.data;\nconst monthly = $('Generate Monthly Report').item.json.data;\n\nconst html = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Reporte Ejecutivo - Salud Laboral</title>\n  <style>\n    body { font-family: Arial, sans-serif; margin: 40px; }\n    .header { text-align: center; margin-bottom: 40px; }\n    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 40px; }\n    .stat-card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; text-align: center; }\n    .stat-value { font-size: 24px; font-weight: bold; margin: 10px 0; }\n    .chart-container { margin: 30px 0; }\n    .footer { margin-top: 50px; font-size: 12px; color: #666; }\n  </style>\n</head>\n<body>\n  <div class=\"header\">\n    <h1>Reporte Ejecutivo Mensual</h1>\n    <p>Período: ${dashboard.lastUpdated}</p>\n  </div>\n  \n  <div class=\"stats-grid\">\n    <div class=\"stat-card\">\n      <h3>Consultas Totales</h3>\n      <div class=\"stat-value\">${dashboard.summary.total_consultas}</div>\n    </div>\n    <div class=\"stat-card\">\n      <h3>Ingresos</h3>\n      <div class=\"stat-value\">S/ ${dashboard.summary.ingresos_totales}</div>\n    </div>\n    <div class=\"stat-card\">\n      <h3>Pacientes Atendidos</h3>\n      <div class=\"stat-value\">${dashboard.summary.pacientes_atendidos}</div>\n    </div>\n    <div class=\"stat-card\">\n      <h3>Tasa de Aptitud</h3>\n      <div class=\"stat-value\">${(dashboard.summary.aptos / dashboard.summary.total_consultas * 100).toFixed(1)}%</div>\n    </div>\n  </div>\n  \n  <div class=\"footer\">\n    <p>Generado automáticamente por Sistema de Salud Laboral</p>\n    <p>Cumple con Ley N° 29783 de Seguridad y Salud en el Trabajo</p>\n  </div>\n</body>\n</html>`;\n\nreturn { dashboardHtml: html };"
+      }
+    },
+    {
+      "name": "Send to Management",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1100, 150],
+      "parameters": {
+        "fromEmail": "reportes@saludlaboral.pe",
+        "toEmail": "gerencia@empresa.com,direccion@empresa.com",
+        "subject": "Reporte Ejecutivo Mensual - Salud Laboral",
+        "text": "Adjunto encontrará el reporte ejecutivo del mes anterior con todas las métricas relevantes.",
+        "attachments": {
+          "attachments": [
+            {
+              "name": "reporte_ejecutivo_{{=$json.currentDate}}.pdf",
+              "content": "={{$binary.data}}",
+              "type": "application/pdf"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Current Date",
+      "type": "n8n-nodes-base.dateTime",
+      "position": [300, 350],
+      "parameters": {
+        "action": "format",
+        "format": "YYYY-MM-DD"
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Calculate Dates",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Current Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Dates": {
+      "main": [
+        [
+          {
+            "node": "Generate Monthly Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Monthly Report": {
+      "main": [
+        [
+          {
+            "node": "Build HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build HTML Report": {
+      "main": [
+        [
+          {
+            "node": "Create PDF Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create PDF Report": {
+      "main": [
+        [
+          {
+            "node": "Send to Management",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Executive Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Build HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Date": {
+      "main": [
+        [
+          {
+            "node": "Send to Management",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

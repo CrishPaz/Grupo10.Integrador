@@ -1,0 +1,171 @@
+{
+  "name": "Seguimiento Automático de Muestras",
+  "nodes": [
+    {
+      "name": "Webhook Nueva Muestra",
+      "type": "n8n-nodes-base.webhook",
+      "position": [300, 200],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nueva-muestra",
+        "responseMode": "responseNode"
+      }
+    },
+    {
+      "name": "Crear Seguimiento",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/inventario-logistica/logistica/seguimiento/create",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "admision_id",
+              "value": "={{$json.admision_id}}"
+            },
+            {
+              "name": "tipo_servicio",
+              "value": "LABORATORIO"
+            },
+            {
+              "name": "estado_inicial",
+              "value": "MUESTRA_TOMADA"
+            },
+            {
+              "name": "muestra_info",
+              "value": "={{\n  tipo_muestra: $json.tipo_muestra,\n  cantidad: $json.cantidad_muestras,\n  condiciones: $json.condiciones_especiales,\n  temperatura: $json.temperatura_requerida,\n  hora_toma: $json.hora_toma,\n  observaciones: $json.observaciones\n}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Generar Código QR Muestra",
+      "type": "n8n-nodes-base.function",
+      "position": [700, 200],
+      "parameters": {
+        "functionCode": "const muestra = $input.first().json;\nconst datosQR = {\n  admision_id: muestra.admision_id,\n  tipo_muestra: muestra.tipo_muestra,\n  hora_toma: muestra.hora_toma_muestra,\n  paciente: muestra.paciente_nombre,\n  codigo_muestra: `M-${Date.now().toString(36).toUpperCase()}`\n};\n\nreturn {\n  ...muestra,\n  codigo_qr: JSON.stringify(datosQR),\n  codigo_muestra: datosQR.codigo_muestra\n};"
+      }
+    },
+    {
+      "name": "Imprimir Etiquetas",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/inventario-logistica/etiquetas/imprimir",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "tipo",
+              "value": "MUESTRA_LABORATORIO"
+            },
+            {
+              "name": "datos",
+              "value": "={{$json}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Notificar Transportista",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1100, 200],
+      "parameters": {
+        "fromEmail": "logistica@saludlaboral.pe",
+        "toEmail": "transportista@empresa.com",
+        "subject": "Nueva muestra para recoger - {{$json.codigo_muestra}}",
+        "text": "Se tiene una nueva muestra lista para recoger:\\n\\nCódigo: {{$json.codigo_muestra}}\\nPaciente: {{$json.paciente_nombre}}\\nTipo: {{$json.tipo_muestra}}\\nCondiciones: {{$json.condiciones_transporte}}\\nTemperatura: {{$json.temperatura_transporte}}\\n\\nPor favor, pasar a recoger en la siguiente hora.\\n\\nClínica Salud Laboral"
+      }
+    },
+    {
+      "name": "Timer para Seguimiento",
+      "type": "n8n-nodes-base.wait",
+      "position": [1300, 200],
+      "parameters": {
+        "resume": "timer",
+        "options": {
+          "time": 1800000 
+        }
+      }
+    },
+    {
+      "name": "Verificar Estado Transporte",
+      "type": "n8n-nodes-base.if",
+      "position": [1500, 200],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.estado_actual}}",
+              "operation": "equals",
+              "value2": "MUESTRA_ENVIADA"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Calcular Tiempo Estimado",
+      "type": "n8n-nodes-base.function",
+      "position": [1700, 200],
+      "parameters": {
+        "functionCode": "const seguimiento = $input.first().json;\nconst horaEnvio = new Date(seguimiento.hora_envio_muestra);\nconst horaActual = new Date();\nconst diffMinutos = Math.floor((horaActual - horaEnvio) / (1000 * 60));\nconst tiempoEstimado = 45; // minutos estimados\n\nif (diffMinutos > tiempoEstimado) {\n  return {\n    ...seguimiento,\n    estado: 'RETRASADO',\n    tiempo_transcurrido: diffMinutos,\n    alerta: `Muestra retrasada: ${diffMinutos - tiempoEstimado} minutos`\n  };\n} else {\n  return {\n    ...seguimiento,\n    tiempo_transcurrido: diffMinutos,\n    tiempo_restante: tiempoEstimado - diffMinutos\n  };\n}"
+      }
+    },
+    {
+      "name": "Actualizar Estado Retrasado",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1900, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/inventario-logistica/logistica/estados/update",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "seguimiento_id",
+              "value": "={{$json.id}}"
+            },
+            {
+              "name": "nuevo_estado",
+              "value": "RETRASADO"
+            },
+            {
+              "name": "observaciones",
+              "value": "={{$json.alerta}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Notificar Retraso",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [2100, 200],
+      "parameters": {
+        "fromEmail": "alertas@saludlaboral.pe",
+        "toEmail": "logistica@saludlaboral.pe,transportista@empresa.com",
+        "subject": "⚠️ RETRASO EN TRANSPORTE DE MUESTRA - {{$json.codigo_muestra}}",
+        "text": "La muestra {{$json.codigo_muestra}} presenta retraso en el transporte:\\n\\nTiempo transcurrido: {{$json.tiempo_transcurrido}} minutos\\nTiempo estimado: 45 minutos\\nRetraso: {{$json.tiempo_transcurrido - 45}} minutos\\n\\nPor favor, contactar al transportista.\\n\\nSistema Inteligente de Salud Laboral"
+      }
+    },
+    {
+      "name": "Respuesta Exitosa",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2300, 200],
+      "parameters": {
+        "responseBody": {
+          "success": true,
+          "message": "Seguimiento iniciado y monitoreo configurado",
+          "seguimiento_id": "={{$json.id}}",
+          "codigo_muestra": "={{$json.codigo_muestra}}"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "name": "Conciliación Automática Tesorería",
+  "nodes": [
+    {
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.cron",
+      "position": [300, 200],
+      "parameters": {
+        "rule": {
+          "timezone": "America/Lima",
+          "hours": [22],
+          "minutes": [0]
+        }
+      }
+    },
+    {
+      "name": "Obtener Movimientos del Día",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:3000/api/facturacion/caja/diaria",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fecha",
+              "value": "={{$now.toISOString().split('T')[0]}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Obtener Extracto Bancario",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [700, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.banco.com/extracto",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "fecha",
+              "value": "={{$now.toISOString().split('T')[0]}}"
+            },
+            {
+              "name": "cuenta",
+              "value": "191-12345678-1-99"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Comparar Movimientos",
+      "type": "n8n-nodes-base.function",
+      "position": [900, 200],
+      "parameters": {
+        "functionCode": "const sistema = $input.first().json;\nconst banco = $input.all()[1].json;\n\n// Procesar movimientos del sistema\nconst movimientosSistema = {\n  efectivo: sistema.resumen_dia.efectivo || 0,\n  tarjeta: sistema.resumen_dia.tarjeta || 0,\n  transferencia: sistema.resumen_dia.transferencia || 0,\n  otros: sistema.resumen_dia.otros || 0,\n  total: sistema.resumen_dia.total_ingresos || 0\n};\n\n// Procesar extracto bancario\nconst movimientosBanco = {\n  efectivo: 0,\n  tarjeta: 0,\n  transferencia: 0,\n  otros: 0,\n  total: 0\n};\n\nbanco.transacciones.forEach(transaccion => {\n  const monto = parseFloat(transaccion.monto);\n  movimientosBanco.total += monto;\n  \n  switch(transaccion.tipo) {\n    case 'DEPOSITO_EFECTIVO':\n      movimientosBanco.efectivo += monto;\n      break;\n    case 'TARJETA':\n      movimientosBanco.tarjeta += monto;\n      break;\n    case 'TRANSFERENCIA':\n      movimientosBanco.transferencia += monto;\n      break;\n    default:\n      movimientosBanco.otros += monto;\n  }\n});\n\n// Calcular diferencias\nconst diferencias = {\n  efectivo: movimientosSistema.efectivo - movimientosBanco.efectivo,\n  tarjeta: movimientosSistema.tarjeta - movimientosBanco.tarjeta,\n  transferencia: movimientosSistema.transferencia - movimientosBanco.transferencia,\n  otros: movimientosSistema.otros - movimientosBanco.otros,\n  total: movimientosSistema.total - movimientosBanco.total\n};\n\n// Determinar estado\nconst estado = Math.abs(diferencias.total) < 0.01 ? 'CONCILIADO' : 'CON_DIFERENCIAS';\n\nreturn {\n  fecha: $now.toISOString().split('T')[0],\n  movimientos_sistema: movimientosSistema,\n  movimientos_banco: movimientosBanco,\n  diferencias,\n  estado,\n  observaciones: estado === 'CON_DIFERENCIAS' ? 'Se encontraron diferencias que requieren revisión' : 'Conciliación exitosa'\n};"
+      }
+    },
+    {
+      "name": "Registrar Conciliación",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1100, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/facturacion/conciliacion/realizar",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "fecha",
+              "value": "={{$json.fecha}}"
+            },
+            {
+              "name": "tipo_conciliacion",
+              "value": "DIARIA"
+            },
+            {
+              "name": "datos_tesoreria",
+              "value": "={{{\n  total_tesoreria_efectivo: $json.movimientos_banco.efectivo,\n  total_tesoreria_tarjeta: $json.movimientos_banco.tarjeta,\n  total_tesoreria_transferencia: $json.movimientos_banco.transferencia,\n  total_tesoreria: $json.movimientos_banco.total\n}}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Enviar Reporte Diferencias",
+      "type": "n8n-nodes-base.if",
+      "position": [1300, 200],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{Math.abs($json.diferencias.total)}}",
+              "operation": "larger",
+              "value2": "10"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Email con Diferencias",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1500, 200],
+      "parameters": {
+        "fromEmail": "tesoreria@saludlaboral.pe",
+        "toEmail": "tesoreria@saludlaboral.pe",
+        "subject": "⚠️ Diferencias en Conciliación - {{$json.fecha}}",
+        "text": "Se encontraron diferencias en la conciliación del día {{$json.fecha}}\\n\\nDiferencias:\\n- Efectivo: S/ {{$json.diferencias.efectivo.toFixed(2)}}\\n- Tarjeta: S/ {{$json.diferencias.tarjeta.toFixed(2)}}\\n- Transferencia: S/ {{$json.diferencias.transferencia.toFixed(2)}}\\n- Total: S/ {{$json.diferencias.total.toFixed(2)}}\\n\\nPor favor, revisar los movimientos del día.\\n\\nSistema Inteligente de Salud Laboral",
+        "attachments": {
+          "attachments": [
+            {
+              "name": "conciliacion_{{=$json.fecha}}.pdf",
+              "content": "={{$json.reporte_pdf}}",
+              "type": "application/pdf"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Registrar en Log",
+      "type": "n8n-nodes-base.function",
+      "position": [1300, 400],
+      "parameters": {
+        "functionCode": "const resultado = $input.first().json;\nconsole.log(`Conciliación ${resultado.fecha}: ${resultado.estado}`);\nconsole.log('Diferencias:', resultado.diferencias);\nreturn resultado;"
+      }
+    }
+  ]
+}

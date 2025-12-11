@@ -1,0 +1,1466 @@
+// Configuración del Cliente
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Conexión a la Base de Datos
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================
+// 1. SISTEMA BASE (Usuarios, Config)
+// =========================================
+
+model Usuarios {
+  id              String    @id @default(uuid())
+  dni             String    @unique
+  email           String    @unique
+  password_hash   String
+  nombres         String
+  apellidos       String
+  telefono        String?
+  rol             String
+  especialidad    String?
+  colegiatura     String?
+  fecha_creacion  DateTime  @default(now())
+  activo          Boolean   @default(true)
+  huella_dactilar Bytes?
+
+  // Relaciones Generales
+  pacientes          Pacientes?
+  admisiones_medico  Admisiones[]           @relation("medico_admisiones")
+  admisiones_creador Admisiones[]           @relation("creador_admisiones")
+  logs_auditoria     LogsAuditoria[]
+  plantillas         PlantillasDocumentos[]
+  integraciones      IntegracionesExternas[]
+  documentos_subidos DocumentosAdmision[]
+  config_turnos      ConfigTurnos[]
+  
+  // Relaciones Historia Clínica
+  historias_creadas  HistoriaClinica[]      @relation("hc_creador")
+  notas_evolucion    NotasEvolucion[]
+  examenes_realizados ExamenesEspecializados[] @relation("examen_realizador")
+  examenes_revisados  ExamenesEspecializados[] @relation("examen_revisor")
+  archivos_hc_subidos ArchivosHistoriaClinica[]
+  accesos_hc          AccesosHistoriaClinica[]
+
+  // Relaciones Laboratorio
+  muestras_recibidas      MuestrasLaboratorio[]    @relation("muestra_receptor")
+  solicitudes_medico      SolicitudesLaboratorio[] @relation("solicitud_medico")
+  solicitudes_tecnico     SolicitudesLaboratorio[] @relation("solicitud_tecnico")
+  solicitudes_verificador SolicitudesLaboratorio[] @relation("solicitud_verificador")
+  solicitudes_liberador   SolicitudesLaboratorio[] @relation("solicitud_liberador")
+  solicitudes_creador     SolicitudesLaboratorio[] @relation("solicitud_creador")
+  resultados_realizados   ResultadosLaboratorio[]  @relation("resultado_realizador")
+  resultados_validados    ResultadosLaboratorio[]  @relation("resultado_validador")
+  controles_resp          ControlCalidadLaboratorio[] @relation("control_responsable")
+  controles_real          ControlCalidadLaboratorio[] @relation("control_realizador")
+  plantillas_lab          PlantillasInformesLaboratorio[] @relation("plantilla_lab_creador")
+  notificaciones_examenes NotificacionesExamenes[]
+
+  // RELACIONES APTITUD
+  conceptos_firmados      ConceptoAptitud[]    @relation("medico_firmante")
+  plantillas_aptitud      PlantillasConcepto[] @relation("creador_plantilla_aptitud")
+  firma_digital           FirmasDigitales?
+  auditoria_conceptos     AuditoriaConceptos[]
+
+  // RELACIONES FACTURACIÓN
+  facturas_creadas        Facturas[]                @relation("factura_creador")
+  facturas_actualizadas   Facturas[]                @relation("factura_actualizador")
+  pagos_confirmados       Pagos[]                   @relation("pago_confirmador")
+  pagos_creados           Pagos[]                   @relation("pago_creador")
+  movimientos_creados     MovimientosCaja[]         @relation("movimiento_creador")
+  cajas_abiertas          Cajas[]                   @relation("cajero_responsable")
+  cajas_cerradas          Cajas[]                   @relation("cajero_cierre")
+  conciliaciones_realiz   ConciliacionesTesoreria[] @relation("conciliacion_responsable")
+  conciliaciones_cread    ConciliacionesTesoreria[] @relation("conciliacion_creador")
+
+  // RELACIONES INVENTARIO
+  items_creados           InventarioItems[]         @relation("item_creador")
+  items_actualizados      InventarioItems[]         @relation("item_actualizador")
+  movimientos_inv_creados MovimientosInventario[]   @relation("mov_inv_creador")
+  movimientos_inv_verif   MovimientosInventario[]   @relation("mov_inv_verificador")
+  alertas_resueltas       AlertasInventario[]       @relation("alerta_resueltos")
+  config_alertas          ConfiguracionAlertas[]    @relation("config_alertas_creador")
+
+  // RELACIONES LOGÍSTICA
+  seguimiento_responsable SeguimientoLogistico[]    @relation("seguimiento_responsable")
+  seguimiento_creador     SeguimientoLogistico[]    @relation("seguimiento_creador")
+  historial_logistica     HistorialEstadosLogistica[] @relation("historial_responsable")
+
+  // RELACIONES BIOMÉTRICAS (NUEVO)
+  huellas_digitales       BiometricTemplates[]
+  intentos_biometricos    BiometricAuthAttempts[]
+  dispositivos_registrados BiometricDevices[]
+  bloqueos_biometricos    BiometricLockouts[]
+  bloqueos_creados        BiometricLockouts[]     @relation("lockout_creator")
+
+  @@map("usuarios")
+}
+
+model ConfigClinica {
+  id               String   @id @default(uuid())
+  nombre           String
+  ruc              String
+  direccion        String?
+  telefono         String?
+  email            String
+  logo             Bytes?
+  logo_mime_type   String?
+  sunat_usuario    String?
+  sunat_password   String?
+  sunat_ambiente   String?  @default("beta")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@map("config_clinica")
+}
+
+model PlantillasDocumentos {
+  id             String   @id @default(uuid())
+  nombre         String
+  tipo           String
+  contenido_html String
+  variables      Json
+  activa         Boolean  @default(true)
+  creado_por     String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  usuario_creador Usuarios? @relation(fields: [creado_por], references: [id])
+
+  @@map("plantillas_documentos")
+}
+
+model IntegracionesExternas {
+  id         String   @id @default(uuid())
+  nombre     String
+  tipo       String
+  config     Json
+  activa     Boolean  @default(false)
+  creado_por String?
+  created_at DateTime @default(now())
+  usuario_creador Usuarios? @relation(fields: [creado_por], references: [id])
+
+  @@map("integraciones_externas")
+}
+
+model LogsAuditoria {
+  id         String   @id @default(uuid())
+  usuario_id String?
+  accion     String
+  modulo     String
+  detalles   Json?
+  ip_address String?
+  user_agent String?
+  created_at DateTime @default(now())
+  usuario Usuarios? @relation(fields: [usuario_id], references: [id])
+
+  @@map("logs_auditoria")
+}
+
+// =========================================
+// 2. NEGOCIO (Pacientes, Admisiones)
+// =========================================
+
+model Empresas {
+  id               String      @id @default(uuid())
+  ruc              String      @unique
+  razon_social     String
+  nombre_comercial String?
+  direccion        String?
+  telefono         String?
+  contacto_nombre  String?
+  contacto_email   String?
+  activo           Boolean     @default(true)
+  fecha_registro   DateTime    @default(now())
+  pacientes        Pacientes[]
+  admisiones       Admisiones[]
+  antecedentes_lab AntecedentesLaborales[]
+
+  @@map("empresas")
+}
+
+model Pacientes {
+  id                      String   @id @default(uuid())
+  usuario_id              String   @unique
+  empresa_id              String?
+  tipo_sangre             String?
+  alergias                String?
+  medicamentos_actuales   String?
+  antecedentes_familiares String?
+  antecedentes_laborales_json  Json? 
+  fecha_nacimiento        DateTime?
+  genero                  String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @default(now()) 
+
+  usuarioUsuario          Usuarios  @relation(fields: [usuario_id], references: [id])
+  empresa                 Empresas? @relation(fields: [empresa_id], references: [id])
+  admisiones              Admisiones[]
+  
+  historias_clinicas      HistoriaClinica[]
+  antecedentes_lab_detallados AntecedentesLaborales[]
+  notificaciones_examenes NotificacionesExamenes[]
+  muestras_lab            MuestrasLaboratorio[]
+  notificaciones_lab      NotificacionesResultados[]
+  movimientos_inventario  MovimientosInventario[]
+
+  @@map("pacientes")
+}
+
+model Admisiones {
+  id                   String    @id @default(uuid())
+  paciente_id          String
+  empresa_id           String?
+  tipo_examen          String
+  estado               String    @default("programado")
+  fecha_programada     DateTime
+  fecha_atencion       DateTime?
+  medico_id            String?
+  motivo_consulta      String?
+  observaciones_admision String?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  created_by           String?
+
+  paciente             Pacientes @relation(fields: [paciente_id], references: [id])
+  empresa              Empresas? @relation(fields: [empresa_id], references: [id])
+  medico               Usuarios? @relation("medico_admisiones", fields: [medico_id], references: [id])
+  creador              Usuarios? @relation("creador_admisiones", fields: [created_by], references: [id])
+  documentos           DocumentosAdmision[]
+  
+  historia_clinica     HistoriaClinica?
+  examenes_especializados ExamenesEspecializados[]
+  facturas             Facturas[]
+  concepto_aptitud     ConceptoAptitud?
+  muestras_lab         MuestrasLaboratorio[]
+  
+  // Relaciones Logística e Inventario
+  movimientos_inventario MovimientosInventario[]
+  seguimiento_logistico  SeguimientoLogistico[]
+
+  // Relación Biométrica (NUEVA: Agregada para corregir error P1012)
+  intentos_biometricos   BiometricAuthAttempts[]
+
+  @@map("admisiones")
+}
+
+model DocumentosAdmision {
+  id             String   @id @default(uuid())
+  admision_id    String?
+  tipo           String   
+  nombre_archivo String
+  mime_type      String?
+  tamano         Int?
+  contenido      Bytes?   
+  hash_sha256    String?
+  subido_por     String?
+  created_at     DateTime @default(now())
+  admision       Admisiones? @relation(fields: [admision_id], references: [id])
+  uploader       Usuarios?   @relation(fields: [subido_por], references: [id])
+
+  @@map("documentos_admision")
+}
+
+model ConfigTurnos {
+  id             String   @id @default(uuid())
+  medico_id      String?
+  dia_semana     Int      
+  hora_inicio    DateTime 
+  hora_fin       DateTime
+  duracion_cita  Int      @default(30)
+  max_citas_dia  Int      @default(20)
+  activo         Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  medico         Usuarios? @relation(fields: [medico_id], references: [id])
+
+  @@map("config_turnos")
+}
+
+model DiasNoLaborables {
+  id         String   @id @default(uuid())
+  fecha      DateTime @unique
+  motivo     String
+  created_at DateTime @default(now())
+
+  @@map("dias_no_laborables")
+}
+
+model TiposExamen {
+  id                   String   @id @default(uuid())
+  codigo               String   @unique
+  nombre               String
+  descripcion          String?
+  duracion_minutos     Int      @default(30)
+  requiere_laboratorio Boolean  @default(false)
+  requiere_radiografia Boolean  @default(false)
+  precio_base          Decimal? @db.Decimal(10, 2)
+  activo               Boolean  @default(true)
+  created_at           DateTime @default(now())
+
+  @@map("tipos_examen")
+}
+
+// =========================================
+// 3. MÓDULO MÉDICO (HISTORIA CLÍNICA)
+// =========================================
+
+model HistoriaClinica {
+  id                      String   @id @default(uuid())
+  admision_id             String   @unique
+  paciente_id             String
+  
+  antecedentes_personales Json?
+  antecedentes_familiares Json?
+  habitos                 Json?
+  alergias                Json?
+  medicamentos_actuales   Json?
+  examen_fisico           Json?
+  signos_vitales          Json?    
+  diagnosticos            Json?    
+  tratamientos            Json?    
+  observaciones           String?  @db.Text
+  
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt 
+  created_by              String?
+  updated_by              String?
+
+  admision                Admisiones @relation(fields: [admision_id], references: [id], onDelete: Cascade)
+  paciente                Pacientes  @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  creador                 Usuarios?  @relation("hc_creador", fields: [created_by], references: [id])
+  
+  notas_evolucion         NotasEvolucion[]
+  archivos                ArchivosHistoriaClinica[]
+  accesos                 AccesosHistoriaClinica[]
+
+  @@map("historia_clinica")
+}
+
+model NotasEvolucion {
+  id                  String   @id @default(uuid())
+  historia_clinica_id String
+  fecha               DateTime @default(now())
+  tipo                String   
+  contenido           String   @db.Text
+  usuario_id          String?
+  created_at          DateTime @default(now())
+
+  historia            HistoriaClinica @relation(fields: [historia_clinica_id], references: [id], onDelete: Cascade)
+  usuario             Usuarios?       @relation(fields: [usuario_id], references: [id])
+
+  @@map("notas_evolucion")
+}
+
+model AntecedentesLaborales {
+  id                  String    @id @default(uuid())
+  paciente_id         String
+  empresa_id          String?
+  puesto_trabajo      String
+  area_trabajo        String?
+  fecha_inicio        DateTime
+  fecha_fin           DateTime?
+  
+  riesgos_fisicos     Json?
+  riesgos_quimicos    Json?
+  riesgos_biologicos  Json?
+  riesgos_ergonomicos Json?
+  riesgos_psicosociales Json?
+  epp_utilizado       Json?
+  accidentes_laborales Json? 
+  enfermedades_laborales Json? 
+  
+  observaciones       String?   @db.Text
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  paciente            Pacientes @relation(fields: [paciente_id], references: [id], onDelete: Cascade)
+  empresa             Empresas? @relation(fields: [empresa_id], references: [id])
+
+  @@map("antecedentes_laborales")
+}
+
+model ExamenesEspecializados {
+  id                  String    @id @default(uuid())
+  admision_id         String
+  tipo_examen         String
+  resultados          Json
+  interpretacion      String?   @db.Text
+  recomendaciones     String?   @db.Text
+  archivos            Json?     
+  estado              String    @default("pendiente")
+  
+  realizado_por       String?
+  revisado_por        String?
+  fecha_realizacion   DateTime?
+  fecha_revision      DateTime?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  admision            Admisiones @relation(fields: [admision_id], references: [id], onDelete: Cascade)
+  realizador          Usuarios?  @relation("examen_realizador", fields: [realizado_por], references: [id])
+  revisor             Usuarios?  @relation("examen_revisor", fields: [revisado_por], references: [id])
+  notificaciones      NotificacionesExamenes[]
+
+  @@map("examenes_especializados")
+}
+
+model ParametrosExamenes {
+  id             String   @id @default(uuid())
+  tipo_examen    String
+  parametro      String
+  valor_minimo   Decimal? @db.Decimal(10, 2)
+  valor_maximo   Decimal? @db.Decimal(10, 2)
+  unidad         String?
+  interpretacion String?
+  activo         Boolean  @default(true)
+  created_at     DateTime @default(now())
+
+  @@unique([tipo_examen, parametro])
+  @@map("parametros_examenes")
+}
+
+model ArchivosHistoriaClinica {
+  id                  String   @id @default(uuid())
+  historia_clinica_id String
+  tipo_archivo        String
+  nombre_archivo      String
+  descripcion         String?
+  mime_type           String?
+  tamano              Int?
+  contenido           Bytes
+  hash_sha256         String?
+  subido_por          String?
+  created_at          DateTime @default(now())
+
+  historia            HistoriaClinica @relation(fields: [historia_clinica_id], references: [id], onDelete: Cascade)
+  uploader            Usuarios?       @relation(fields: [subido_por], references: [id])
+
+  @@map("archivos_historia_clinica")
+}
+
+model AccesosHistoriaClinica {
+  id                  String   @id @default(uuid())
+  historia_clinica_id String
+  usuario_id          String?
+  tipo_acceso         String   
+  detalles            Json?
+  ip_address          String?
+  user_agent          String?
+  created_at          DateTime @default(now())
+
+  historia            HistoriaClinica @relation(fields: [historia_clinica_id], references: [id], onDelete: Cascade)
+  usuario             Usuarios?       @relation(fields: [usuario_id], references: [id])
+
+  @@map("accesos_historia_clinica")
+}
+
+// =========================================
+// 6. MÓDULO LABORATORIO CLÍNICO
+// =========================================
+
+model TiposExamenLaboratorio {
+  id                      String   @id @default(uuid())
+  codigo                  String   @unique
+  nombre                  String
+  categoria               String   
+  descripcion             String?  @db.Text
+  tiempo_procesamiento_min Int?    @default(60)
+  tiempo_entrega_max      Int?     @default(24)
+  tipo_muestra            String?
+  volumen_minimo          Decimal? @db.Decimal(5, 2)
+  recipiente              String?
+  condiciones_almacenamiento Json?
+  parametros              Json?    
+  precio                  Decimal? @db.Decimal(10, 2)
+  codigo_sunat            String?
+  activo                  Boolean  @default(true)
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  solicitudes             SolicitudesLaboratorio[]
+  plantillas              PlantillasInformesLaboratorio[]
+
+  @@map("tipos_examen_laboratorio")
+}
+
+model MuestrasLaboratorio {
+  id                      String   @id @default(uuid())
+  codigo_muestra          String   @unique
+  admision_id             String?
+  paciente_id             String?
+  tipo_muestra            String
+  cantidad                Decimal? @db.Decimal(5, 2)
+  recipiente              String?
+  color                   String?
+  aspecto                 String?
+  observaciones_muestra   String?  @db.Text
+  recibido_por            String?
+  fecha_recepcion         DateTime @default(now())
+  hora_recepcion          DateTime? @default(now())
+  temperatura_transporte  Decimal? @db.Decimal(4, 1)
+  tiempo_transporte       Int?
+  condiciones_transporte  Json?
+  estado                  String   @default("pendiente")
+  motivo_rechazo          String?  @db.Text
+  ubicacion_actual        String?
+  rack                    String?
+  posicion                String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  // Relaciones
+  admision                Admisiones? @relation(fields: [admision_id], references: [id])
+  paciente                Pacientes?  @relation(fields: [paciente_id], references: [id])
+  receptor                Usuarios?   @relation("muestra_receptor", fields: [recibido_por], references: [id])
+  solicitudes             SolicitudesLaboratorio[]
+
+  @@map("muestras_laboratorio")
+}
+
+model SolicitudesLaboratorio {
+  id                      String   @id @default(uuid())
+  muestra_id              String?
+  tipo_examen_id          String?
+  codigo_solicitud        String   @unique
+  prioridad               String   @default("normal")
+  instrucciones_especiales String? @db.Text
+  medico_solicitante      String?
+  estado                  String   @default("pendiente")
+  
+  tecnico_asignado        String?
+  fecha_asignacion        DateTime?
+  fecha_inicio_proceso    DateTime?
+  fecha_fin_proceso       DateTime?
+  
+  verificado_por          String?
+  fecha_verificacion      DateTime?
+  liberado_por            String?
+  fecha_liberacion        DateTime?
+  
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+  created_by              String?
+
+  // Relaciones
+  muestra                 MuestrasLaboratorio? @relation(fields: [muestra_id], references: [id])
+  tipo_examen             TiposExamenLaboratorio? @relation(fields: [tipo_examen_id], references: [id])
+  medico                  Usuarios? @relation("solicitud_medico", fields: [medico_solicitante], references: [id])
+  tecnico                 Usuarios? @relation("solicitud_tecnico", fields: [tecnico_asignado], references: [id])
+  verificador             Usuarios? @relation("solicitud_verificador", fields: [verificado_por], references: [id])
+  liberador               Usuarios? @relation("solicitud_liberador", fields: [liberado_por], references: [id])
+  creador                 Usuarios? @relation("solicitud_creador", fields: [created_by], references: [id])
+  
+  resultados              ResultadosLaboratorio[]
+  notificaciones          NotificacionesResultados[]
+
+  @@map("solicitudes_laboratorio")
+}
+
+model ResultadosLaboratorio {
+  id                      String   @id @default(uuid())
+  solicitud_id            String?
+  parametro_codigo        String
+  parametro_nombre        String
+  resultado               String?
+  resultado_numerico      Decimal? @db.Decimal(10, 2)
+  resultado_textual       String?  @db.Text
+  unidad                  String?
+  valor_referencia_min    Decimal? @db.Decimal(10, 2)
+  valor_referencia_max    Decimal? @db.Decimal(10, 2)
+  valor_referencia_texto  String?
+  interpretacion          String?
+  flag                    String?
+  metodo_utilizado        String?
+  equipo_utilizado        String?
+  lote_reactivo           String?
+  
+  realizado_por           String?
+  fecha_realizacion       DateTime @default(now())
+  validado_por            String?
+  fecha_validacion        DateTime?
+  observaciones           String?  @db.Text
+  
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  solicitud               SolicitudesLaboratorio? @relation(fields: [solicitud_id], references: [id])
+  realizador              Usuarios? @relation("resultado_realizador", fields: [realizado_por], references: [id])
+  validador               Usuarios? @relation("resultado_validador", fields: [validado_por], references: [id])
+
+  @@map("resultados_laboratorio")
+}
+
+model ControlCalidadLaboratorio {
+  id                      String   @id @default(uuid())
+  equipo_id               String?
+  parametro               String
+  lote_control            String
+  fecha_analisis          DateTime
+  valor_obtenido          Decimal? @db.Decimal(10, 2)
+  valor_esperado          Decimal? @db.Decimal(10, 2)
+  desviacion_estandar     Decimal? @db.Decimal(10, 2)
+  cv                      Decimal? @db.Decimal(5, 2)
+  estado                  String?
+  regla_westgard          String?
+  observaciones           String?  @db.Text
+  accion_correctiva       String?  @db.Text
+  responsable_correccion  String?
+  fecha_correccion        DateTime?
+  realizado_por           String?
+  created_at              DateTime @default(now())
+
+  equipo                  EquiposLaboratorio? @relation(fields: [equipo_id], references: [id])
+  responsable             Usuarios? @relation("control_responsable", fields: [responsable_correccion], references: [id])
+  realizador              Usuarios? @relation("control_realizador", fields: [realizado_por], references: [id])
+
+  @@map("control_calidad_laboratorio")
+}
+
+model EquiposLaboratorio {
+  id                      String   @id @default(uuid())
+  nombre                  String
+  modelo                  String?
+  fabricante              String?
+  serial                  String?
+  tipo_interfaz           String?
+  configuracion           Json?
+  estado                  String   @default("activo")
+  ultimo_mantenimiento    DateTime?
+  proximo_mantenimiento   DateTime?
+  examenes_soportados     Json?    
+  velocidad_analisis      Int?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  controles_calidad       ControlCalidadLaboratorio[]
+  logs                    LogsEquiposLaboratorio[]
+
+  @@map("equipos_laboratorio")
+}
+
+model LogsEquiposLaboratorio {
+  id                      String   @id @default(uuid())
+  equipo_id               String?
+  tipo_evento             String?
+  descripcion             String?  @db.Text
+  datos                   Json?
+  fecha_evento            DateTime @default(now())
+
+  equipo                  EquiposLaboratorio? @relation(fields: [equipo_id], references: [id])
+
+  @@map("logs_equipos_laboratorio")
+}
+
+model PlantillasInformesLaboratorio {
+  id                      String   @id @default(uuid())
+  nombre                  String
+  tipo_examen_id          String?
+  encabezado_html         String?  @db.Text
+  cuerpo_html             String?  @db.Text
+  pie_pagina_html         String?  @db.Text
+  estilos_css             String?  @db.Text
+  incluir_valores_referencia Boolean @default(true)
+  incluir_interpretacion  Boolean @default(true)
+  incluir_observaciones   Boolean @default(true)
+  formato_papel           String   @default("A4")
+  activa                  Boolean  @default(true)
+  creado_por              String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  tipo_examen             TiposExamenLaboratorio? @relation(fields: [tipo_examen_id], references: [id])
+  creador                 Usuarios? @relation("plantilla_lab_creador", fields: [creado_por], references: [id])
+
+  @@map("plantillas_informes_laboratorio")
+}
+
+model NotificacionesResultados {
+  id                      String   @id @default(uuid())
+  solicitud_id            String?
+  paciente_id             String?
+  metodo                  String?
+  destinatario            String?
+  asunto                  String?
+  mensaje                 String?  @db.Text
+  estado                  String   @default("pendiente")
+  intentos                Int      @default(0)
+  fecha_envio             DateTime?
+  fecha_lectura           DateTime?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  solicitud               SolicitudesLaboratorio? @relation(fields: [solicitud_id], references: [id])
+  paciente                Pacientes? @relation(fields: [paciente_id], references: [id])
+
+  @@map("notificaciones_resultados")
+}
+
+model NotificacionesExamenes {
+  id                String   @id @default(uuid())
+  examen_id         String
+  paciente_id       String
+  medico_id         String?
+  tipo_notificacion String   
+  enviada_a         String
+  fecha_envio       DateTime @default(now())
+
+  examen            ExamenesEspecializados @relation(fields: [examen_id], references: [id])
+  paciente          Pacientes              @relation(fields: [paciente_id], references: [id])
+  medico            Usuarios?              @relation(fields: [medico_id], references: [id])
+
+  @@map("notificaciones_examenes")
+}
+
+// =========================================
+// 7. MÓDULO APTITUD (CERTIFICACIÓN)
+// =========================================
+
+model ConceptoAptitud {
+  id               String    @id @default(uuid())
+  admision_id      String    @unique 
+  resultado        String    
+  restricciones    String?   @db.Text
+  recomendaciones  String?   @db.Text
+  fecha_vigencia   DateTime?
+  fecha_emision    DateTime  @default(now())
+  firmado_por      String?
+  hash_documento   String?   
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  admision         Admisiones @relation(fields: [admision_id], references: [id])
+  medico           Usuarios?  @relation("medico_firmante", fields: [firmado_por], references: [id])
+  auditorias       AuditoriaConceptos[]
+
+  @@index([created_at(sort: Desc)])
+  @@map("conceptos_aptitud")
+}
+
+model PlantillasConcepto {
+  id                String   @id @default(uuid())
+  nombre            String
+  tipo_resultado    String[] 
+  contenido_html    String   @db.Text
+  variables_disponibles Json?
+  is_activa         Boolean  @default(true)
+  creado_por        String?
+  fecha_creacion    DateTime @default(now())
+  
+  creador           Usuarios? @relation("creador_plantilla_aptitud", fields: [creado_por], references: [id])
+
+  @@map("plantillas_concepto")
+}
+
+model FirmasDigitales {
+  id                String   @id @default(uuid())
+  medico_id         String   @unique
+  certificado_digital Bytes
+  hash_certificado  String
+  fecha_vencimiento DateTime
+  is_valido         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  
+  medico            Usuarios @relation(fields: [medico_id], references: [id])
+
+  @@map("firmas_digitales")
+}
+
+model AuditoriaConceptos {
+  id          String   @id @default(uuid())
+  concepto_id String?
+  accion      String
+  usuario_id  String?
+  detalles    Json?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+  
+  concepto    ConceptoAptitud? @relation(fields: [concepto_id], references: [id])
+  usuario     Usuarios?        @relation(fields: [usuario_id], references: [id])
+
+  @@index([concepto_id])
+  @@map("auditoria_conceptos")
+}
+
+// =========================================
+// 8. MÓDULO FACTURACIÓN Y TESORERÍA (NUEVO)
+// =========================================
+
+model Facturas {
+  id                     String   @id @default(uuid())
+  admision_id            String?
+  tipo_comprobante       String   // 01: Factura, 03: Boleta, etc.
+  serie                  String
+  numero                 Int
+  fecha_emision          DateTime @default(now())
+  fecha_vencimiento      DateTime?
+  
+  // Emisor
+  emisor_ruc             String
+  emisor_razon_social    String
+  emisor_direccion       String?
+  emisor_ubigeo          String?
+  
+  // Receptor
+  receptor_tipo_documento String?
+  receptor_numero_documento String?
+  receptor_razon_social   String?
+  receptor_direccion      String?
+  receptor_email          String?
+  
+  // Montos
+  subtotal               Decimal  @default(0) @db.Decimal(12, 2)
+  descuento              Decimal? @default(0) @db.Decimal(12, 2)
+  base_imponible         Decimal  @default(0) @db.Decimal(12, 2)
+  igv                    Decimal  @default(0) @db.Decimal(12, 2)
+  total                  Decimal  @default(0) @db.Decimal(12, 2)
+  total_letras           String?
+  
+  // Estados
+  estado_sunat           String   @default("PENDIENTE") // PENDIENTE, ACEPTADO, RECHAZADO, ANULADO
+  estado_pago            String   @default("PENDIENTE") // PENDIENTE, PAGADO, PAGO_PARCIAL, ANULADO
+  
+  // Datos SUNAT
+  xml_generado           String?  @db.Text
+  xml_firmado            String?  @db.Text
+  cdr_respuesta          String?  @db.Text
+  hash_cdr               String?
+  fecha_envio_sunat      DateTime?
+  fecha_respuesta_sunat  DateTime?
+  
+  created_at             DateTime @default(now())
+  created_by             String?
+  updated_at             DateTime @updatedAt
+  updated_by             String?
+
+  // Relaciones
+  admision               Admisiones? @relation(fields: [admision_id], references: [id])
+  creador                Usuarios?   @relation("factura_creador", fields: [created_by], references: [id])
+  actualizador           Usuarios?   @relation("factura_actualizador", fields: [updated_by], references: [id])
+  
+  detalles               FacturaDetalles[]
+  pagos                  Pagos[]
+  movimientos_caja       MovimientosCaja[]
+  transacciones_pasarela TransaccionesPasarela[]
+
+  @@unique([serie, numero])
+  @@index([estado_pago])
+  @@index([fecha_emision(sort: Desc)])
+  @@map("facturas")
+}
+
+model FacturaDetalles {
+  id               String   @id @default(uuid())
+  factura_id       String?
+  item_orden       Int
+  codigo_producto  String?
+  descripcion      String
+  cantidad         Decimal  @db.Decimal(10, 2)
+  unidad_medida    String?  @default("NIU")
+  precio_unitario  Decimal  @db.Decimal(12, 2)
+  subtotal         Decimal  @db.Decimal(12, 2)
+  igv_porcentaje   Decimal? @default(18.00) @db.Decimal(5, 2)
+  igv_monto        Decimal  @db.Decimal(12, 2)
+  total            Decimal  @db.Decimal(12, 2)
+  tipo_servicio    String?  // CONSULTA, EXAMEN
+  servicio_id      String?
+  created_at       DateTime @default(now())
+
+  factura          Facturas? @relation(fields: [factura_id], references: [id], onDelete: Cascade)
+
+  @@map("factura_detalles")
+}
+
+model Pagos {
+  id                  String   @id @default(uuid())
+  factura_id          String?
+  tipo_pago           String   // EFECTIVO, TARJETA, etc.
+  monto               Decimal  @db.Decimal(12, 2)
+  moneda              String   @default("PEN")
+  tipo_cambio         Decimal? @default(1.000) @db.Decimal(8, 3)
+  
+  numero_transaccion  String?
+  banco               String?
+  numero_cuenta       String?
+  fecha_operacion     DateTime?
+  referencia          String?
+  
+  estado              String   @default("REGISTRADO")
+  cajero_id           String?
+  fecha_pago          DateTime @default(now())
+  fecha_confirmacion  DateTime?
+  confirmado_por      String?
+  created_at          DateTime @default(now())
+  created_by          String?
+
+  factura             Facturas? @relation(fields: [factura_id], references: [id])
+  confirmador         Usuarios? @relation("pago_confirmador", fields: [confirmado_por], references: [id])
+  creador             Usuarios? @relation("pago_creador", fields: [created_by], references: [id])
+  movimientos         MovimientosCaja[]
+
+  @@index([factura_id])
+  @@index([fecha_pago(sort: Desc)])
+  @@map("pagos")
+}
+
+model MovimientosCaja {
+  id               String   @id @default(uuid())
+  caja_id          String?
+  tipo_movimiento  String   // APERTURA, CIERRE, INGRESO, EGRESO
+  pago_id          String?
+  factura_id       String?
+  descripcion      String
+  monto            Decimal  @db.Decimal(12, 2)
+  moneda           String   @default("PEN")
+  metodo_pago      String?
+  estado           String   @default("ACTIVO")
+  created_at       DateTime @default(now())
+  created_by       String?
+
+  pago             Pagos?    @relation(fields: [pago_id], references: [id])
+  factura          Facturas? @relation(fields: [factura_id], references: [id])
+  caja             Cajas?    @relation(fields: [caja_id], references: [id])
+  creador          Usuarios? @relation("movimiento_creador", fields: [created_by], references: [id])
+
+  @@index([caja_id])
+  @@index([created_at(sort: Desc)])
+  @@map("movimientos_caja")
+}
+
+model Cajas {
+  id                         String    @id @default(uuid())
+  usuario_id                 String
+  fecha                      DateTime  @db.Date
+  hora_apertura              DateTime  @default(now())
+  hora_cierre                DateTime?
+  
+  monto_inicial_efectivo     Decimal?  @default(0) @db.Decimal(12, 2)
+  monto_inicial_tarjeta      Decimal?  @default(0) @db.Decimal(12, 2)
+  monto_inicial_transferencia Decimal? @default(0) @db.Decimal(12, 2)
+  monto_inicial_otros        Decimal?  @default(0) @db.Decimal(12, 2)
+  
+  monto_final_efectivo       Decimal?  @default(0) @db.Decimal(12, 2)
+  monto_final_tarjeta        Decimal?  @default(0) @db.Decimal(12, 2)
+  monto_final_transferencia  Decimal?  @default(0) @db.Decimal(12, 2)
+  monto_final_otros          Decimal?  @default(0) @db.Decimal(12, 2)
+  
+  total_ingresos             Decimal?  @default(0) @db.Decimal(12, 2)
+  total_egresos              Decimal?  @default(0) @db.Decimal(12, 2)
+  total_esperado             Decimal?  @default(0) @db.Decimal(12, 2)
+  total_real                 Decimal?  @default(0) @db.Decimal(12, 2)
+  diferencia                 Decimal?  @default(0) @db.Decimal(12, 2)
+  
+  observaciones              String?   @db.Text
+  estado                     String    @default("ABIERTA")
+  cerrado_por                String?
+  created_at                 DateTime  @default(now())
+
+  responsable                Usuarios  @relation("cajero_responsable", fields: [usuario_id], references: [id])
+  cierre_responsable         Usuarios? @relation("cajero_cierre", fields: [cerrado_por], references: [id])
+  movimientos                MovimientosCaja[]
+
+  @@index([usuario_id, fecha(sort: Desc)])
+  @@map("cajas")
+}
+
+model ConciliacionesTesoreria {
+  id                          String    @id @default(uuid())
+  fecha                       DateTime  @db.Date
+  tipo_conciliacion           String?   // DIARIA, SEMANAL
+  total_sistema_efectivo      Decimal?  @db.Decimal(12, 2)
+  total_sistema_tarjeta       Decimal?  @db.Decimal(12, 2)
+  total_sistema_transferencia Decimal?  @db.Decimal(12, 2)
+  total_sistema               Decimal?  @db.Decimal(12, 2)
+  
+  total_tesoreria_efectivo    Decimal?  @db.Decimal(12, 2)
+  total_tesoreria_tarjeta     Decimal?  @db.Decimal(12, 2)
+  total_tesoreria_transferencia Decimal? @db.Decimal(12, 2)
+  total_tesoreria             Decimal?  @db.Decimal(12, 2)
+  
+  diferencia_efectivo         Decimal?  @db.Decimal(12, 2)
+  diferencia_tarjeta          Decimal?  @db.Decimal(12, 2)
+  diferencia_transferencia    Decimal?  @db.Decimal(12, 2)
+  diferencia_total            Decimal?  @db.Decimal(12, 2)
+  
+  estado                      String    @default("PENDIENTE")
+  conciliado_por              String?
+  fecha_conciliacion          DateTime?
+  observaciones               String?   @db.Text
+  created_at                  DateTime  @default(now())
+  created_by                  String?
+
+  responsable                 Usuarios? @relation("conciliacion_responsable", fields: [conciliado_por], references: [id])
+  creador                     Usuarios? @relation("conciliacion_creador", fields: [created_by], references: [id])
+
+  @@index([fecha(sort: Desc)])
+  @@map("conciliaciones_tesoreria")
+}
+
+model PasarelasPago {
+  id                  String   @id @default(uuid())
+  nombre              String
+  tipo_pasarela       String?
+  activa              Boolean  @default(true)
+  api_key_publica     String?
+  api_key_privada     String?
+  merchant_id         String?
+  endpoint_produccion String?
+  endpoint_sandbox    String?
+  modo_sandbox        Boolean  @default(true)
+  comision_porcentaje Decimal? @default(0) @db.Decimal(5, 2)
+  comision_fija       Decimal? @default(0) @db.Decimal(8, 2)
+  iva_comision        Boolean  @default(true)
+  webhook_url         String?
+  webhook_secret      String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  transacciones       TransaccionesPasarela[]
+
+  @@map("pasarelas_pago")
+}
+
+model TransaccionesPasarela {
+  id                     String   @id @default(uuid())
+  pasarela_id            String?
+  factura_id             String?
+  referencia_pasarela    String   @unique
+  estado_pasarela        String?
+  monto_transaccion      Decimal? @db.Decimal(12, 2)
+  moneda                 String?
+  pagador_email          String?
+  pagador_nombre         String?
+  pagador_documento      String?
+  tarjeta_ultimos_digitos String?
+  tarjeta_marca          String?
+  tarjeta_tipo           String?
+  respuesta_raw          String?  @db.Text
+  codigo_respuesta       String?
+  mensaje_respuesta      String?
+  fecha_transaccion      DateTime @default(now())
+  fecha_respuesta        DateTime?
+  ip_cliente             String?
+  user_agent             String?
+  created_at             DateTime @default(now())
+
+  pasarela               PasarelasPago? @relation(fields: [pasarela_id], references: [id])
+  factura                Facturas?      @relation(fields: [factura_id], references: [id])
+
+  @@map("transacciones_pasarela")
+}
+
+model TasasCambio {
+  id             String   @id @default(uuid())
+  fecha          DateTime @db.Date
+  moneda_origen  String   @default("USD")
+  moneda_destino String   @default("PEN")
+  tasa_compra    Decimal  @db.Decimal(8, 3)
+  tasa_venta     Decimal  @db.Decimal(8, 3)
+  fuente         String   @default("SBS")
+  created_at     DateTime @default(now())
+
+  @@unique([fecha, moneda_origen, moneda_destino])
+  @@map("tasas_cambio")
+}
+
+// =========================================
+// 9. MÓDULO INVENTARIO Y LOGÍSTICA (NUEVO)
+// =========================================
+
+model InventarioItems {
+  id              String   @id @default(uuid())
+  codigo          String   @unique
+  codigo_barras   String?  @unique
+  codigo_qr       String?  @db.Text
+  nombre          String
+  nombre_comercial String?
+  descripcion     String?  @db.Text
+  
+  categoria       String   // MEDICAMENTO, MATERIAL_LABORATORIO, etc.
+  subcategoria    String?
+  tipo_unidad     String   // UNIDAD, CAJA, etc.
+  
+  stock_actual    Decimal  @default(0) @db.Decimal(10, 3)
+  stock_minimo    Decimal  @default(5) @db.Decimal(10, 3)
+  stock_maximo    Decimal? @default(100) @db.Decimal(10, 3)
+  // punto_reorden es generado (computed), Prisma no lo maneja directamente en inserción pero lo lee
+  
+  ubicacion       String?
+  estante         String?
+  nivel           String?
+  posicion        String?
+  
+  proveedor_id    String?
+  costo_unitario  Decimal  @default(0) @db.Decimal(10, 2)
+  precio_venta    Decimal? @db.Decimal(10, 2)
+  iva_porcentaje  Decimal? @default(18.00) @db.Decimal(5, 2)
+  
+  lote            String?
+  fecha_fabricacion DateTime?
+  fecha_vencimiento DateTime?
+  // dias_para_vencer es generado
+  
+  presentacion    String?
+  concentracion   String?
+  principio_activo String?
+  laboratorio     String?
+  registro_sanitario String?
+  temperatura_almacenamiento String?
+  condiciones_especiales String?  @db.Text
+  
+  estado          String   @default("ACTIVO") // ACTIVO, INACTIVO, etc.
+  
+  created_at      DateTime @default(now())
+  created_by      String?
+  updated_at      DateTime @updatedAt
+  updated_by      String?
+
+  proveedor       Proveedores? @relation(fields: [proveedor_id], references: [id])
+  creador         Usuarios?    @relation("item_creador", fields: [created_by], references: [id])
+  actualizador    Usuarios?    @relation("item_actualizador", fields: [updated_by], references: [id])
+  
+  movimientos     MovimientosInventario[]
+  alertas         AlertasInventario[]
+  kardex          Kardex[]
+
+  @@index([codigo])
+  @@index([categoria])
+  @@map("inventario_items")
+}
+
+model Proveedores {
+  id              String   @id @default(uuid())
+  ruc             String   @unique
+  razon_social    String
+  nombre_comercial String?
+  direccion       String?  @db.Text
+  telefono        String?
+  email           String?
+  contacto_nombre String?
+  contacto_telefono String?
+  tipo_proveedor  String?  // FARMACEUTICA, LABORATORIO, etc.
+  estado          String?  @default("ACTIVO")
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  items           InventarioItems[]
+  movimientos     MovimientosInventario[]
+
+  @@map("proveedores")
+}
+
+model MovimientosInventario {
+  id              String   @id @default(uuid())
+  item_id         String?
+  tipo_movimiento String   // ENTRADA, SALIDA, AJUSTE, etc.
+  
+  cantidad        Decimal  @db.Decimal(10, 3)
+  unidad_medida   String?
+  costo_unitario  Decimal? @db.Decimal(10, 2)
+  total_costo     Decimal? @db.Decimal(12, 2)
+  
+  proveedor_id    String?
+  factura_compra  String?
+  orden_compra    String?
+  
+  admision_id     String?
+  paciente_id     String?
+  medico_id       String?
+  servicio_id     String?
+  
+  motivo_ajuste   String?
+  observaciones   String?  @db.Text
+  
+  lote_movimiento String?
+  fecha_vencimiento_movimiento DateTime?
+  
+  estado_movimiento String? @default("COMPLETADO")
+  
+  created_at      DateTime @default(now())
+  created_by      String?
+  verificado_por  String?
+  fecha_verificacion DateTime?
+
+  item            InventarioItems? @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  proveedor       Proveedores?     @relation(fields: [proveedor_id], references: [id])
+  admision        Admisiones?      @relation(fields: [admision_id], references: [id])
+  paciente        Pacientes?       @relation(fields: [paciente_id], references: [id])
+  creador         Usuarios?        @relation("mov_inv_creador", fields: [created_by], references: [id])
+  verificador     Usuarios?        @relation("mov_inv_verificador", fields: [verificado_por], references: [id])
+  
+  kardex          Kardex[]
+
+  @@index([item_id])
+  @@index([created_at(sort: Desc)])
+  @@map("movimientos_inventario")
+}
+
+model SeguimientoLogistico {
+  id              String   @id @default(uuid())
+  admision_id     String
+  tipo_servicio   String   // LABORATORIO, IMAGENES, etc.
+  estado_actual   String   // PROGRAMADO, MUESTRA_TOMADA, etc.
+  
+  ubicacion_actual String?
+  responsable_actual String?
+  fecha_estado_actual DateTime @default(now())
+  
+  tipo_muestra    String?
+  cantidad_muestras Int?
+  condiciones_transporte String?
+  temperatura_transporte String?
+  hora_toma_muestra DateTime?
+  hora_envio_muestra DateTime?
+  hora_recepcion_muestra DateTime?
+  
+  transportista   String?
+  vehiculo_placa  String?
+  telefono_transportista String?
+  // tiempo_estimado_transporte (Interval no soportado nativo en Prisma, usar String o Int minutos)
+  
+  fecha_estimada_entrega DateTime?
+  fecha_real_entrega     DateTime?
+  
+  observaciones   String?  @db.Text
+  estado_general  String?  @default("EN_PROCESO")
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  created_by      String?
+
+  admision        Admisiones @relation(fields: [admision_id], references: [id])
+  responsable     Usuarios?  @relation("seguimiento_responsable", fields: [responsable_actual], references: [id])
+  creador         Usuarios?  @relation("seguimiento_creador", fields: [created_by], references: [id])
+  historial       HistorialEstadosLogistica[]
+
+  @@index([admision_id])
+  @@map("seguimiento_logistico")
+}
+
+model HistorialEstadosLogistica {
+  id              String   @id @default(uuid())
+  seguimiento_id  String?
+  estado          String
+  subestado       String?
+  observaciones   String?  @db.Text
+  ubicacion       String?
+  responsable_id  String?
+  evidencia_url   String?
+  evidencia_tipo  String?
+  created_at      DateTime @default(now())
+  created_by      String?
+
+  seguimiento     SeguimientoLogistico? @relation(fields: [seguimiento_id], references: [id], onDelete: Cascade)
+  responsable     Usuarios?             @relation("historial_responsable", fields: [responsable_id], references: [id])
+
+  @@index([seguimiento_id])
+  @@map("historial_estados_logistica")
+}
+
+model AlertasInventario {
+  id              String   @id @default(uuid())
+  item_id         String?
+  tipo_alerta     String   // STOCK_BAJO, VENCIDO, etc.
+  nivel_gravedad  String   // BAJO, MEDIO, ALTO
+  mensaje         String   @db.Text
+  datos_alertas   Json?
+  estado          String?  @default("PENDIENTE")
+  accion_tomada   String?  @db.Text
+  resuelto_por    String?
+  fecha_resolucion DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  item            InventarioItems? @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  resolutor       Usuarios?        @relation("alerta_resueltos", fields: [resuelto_por], references: [id])
+
+  @@index([item_id])
+  @@map("alertas_inventario")
+}
+
+model Kardex {
+  id              String   @id @default(uuid())
+  item_id         String?
+  movimiento_id   String?
+  fecha_movimiento DateTime
+  
+  entrada_cantidad Decimal? @default(0) @db.Decimal(10, 3)
+  entrada_costo_unitario Decimal? @db.Decimal(10, 2)
+  entrada_total    Decimal? @db.Decimal(12, 2)
+  
+  salida_cantidad  Decimal? @default(0) @db.Decimal(10, 3)
+  salida_costo_unitario Decimal? @db.Decimal(10, 2)
+  salida_total     Decimal? @db.Decimal(12, 2)
+  
+  saldo_cantidad   Decimal  @db.Decimal(10, 3)
+  saldo_costo_unitario Decimal? @db.Decimal(10, 2)
+  saldo_total      Decimal? @db.Decimal(12, 2)
+  
+  metodo_valorizacion String? @default("PEPS")
+  created_at       DateTime @default(now())
+
+  item            InventarioItems? @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  movimiento      MovimientosInventario? @relation(fields: [movimiento_id], references: [id])
+
+  @@unique([item_id, movimiento_id])
+  @@map("kardex")
+}
+
+model ConfiguracionAlertas {
+  id              String   @id @default(uuid())
+  dias_alerta_vencimiento Int? @default(30)
+  porcentaje_stock_bajo Decimal? @default(20.00) @db.Decimal(5, 2)
+  porcentaje_stock_critico Decimal? @default(10.00) @db.Decimal(5, 2)
+  dias_sin_movimiento Int? @default(90)
+  
+  notificar_email Boolean? @default(true)
+  notificar_sms   Boolean? @default(false)
+  notificar_whatsapp Boolean? @default(false)
+  
+  emails_notificacion String[] // Array (Postgres)
+  telefonos_notificacion String[] // Array (Postgres)
+  
+  hora_envio_alertas DateTime? @db.Time
+  frecuencia_revision String? @default("DIARIA")
+  
+  updated_at      DateTime @default(now())
+  updated_by      String?
+
+  actualizador    Usuarios? @relation("config_alertas_creador", fields: [updated_by], references: [id])
+
+  @@map("configuracion_alertas")
+}
+
+model CategoriasInventario {
+  id              String   @id @default(uuid())
+  nombre          String   @unique
+  descripcion     String?  @db.Text
+  categoria_padre String?
+  nivel           Int?     @default(1)
+  es_activa       Boolean? @default(true)
+  created_at      DateTime @default(now())
+
+  padre           CategoriasInventario? @relation("cat_padre", fields: [categoria_padre], references: [id])
+  hijos           CategoriasInventario[] @relation("cat_padre")
+
+  @@map("categorias_inventario")
+}
+
+// =========================================
+// 8. MÓDULO BIOMÉTRICO (NUEVO)
+// =========================================
+
+model BiometricTemplates {
+  id                String   @id @default(uuid())
+  usuario_id        String
+  tipo_biometrico   String   // 'huella_dactilar', 'facial', etc.
+  
+  // Datos encriptados
+  template_data     Bytes    // Plantilla binaria
+  template_hash     String   // SHA256 para búsqueda rápida
+  quality_score     Int?
+  
+  // Metadatos
+  device_model      String?
+  device_serial     String?
+  algorithm_version String?  @default("1.0")
+  
+  // Estadísticas
+  match_count       Int?     @default(0)
+  last_match        DateTime?
+  failed_attempts   Int?     @default(0)
+  
+  // Seguridad
+  encryption_key_id String?
+  iv                String   // Vector de inicialización AES
+  is_active         Boolean  @default(true)
+  
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  usuario           Usuarios @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@unique([usuario_id, tipo_biometrico, device_serial])
+  @@map("biometric_templates")
+}
+
+model BiometricAuthAttempts {
+  id                  String   @id @default(uuid())
+  usuario_id          String?
+  admision_id         String?
+  
+  tipo_biometrico     String?
+  device_id           String?
+  location_lat        Float?   // Prisma no soporta POINT nativo fácilmente, usamos lat/long
+  location_long       Float?
+  
+  match_score         Decimal? @db.Decimal(5, 2)
+  threshold           Decimal? @default(65.0) @db.Decimal(5, 2)
+  is_successful       Boolean
+  
+  processing_time_ms  Int?
+  template_size_bytes Int?
+  algorithm_used      String?
+  
+  ip_address          String?
+  user_agent          String?
+  geolocation         Json?
+  
+  created_at          DateTime @default(now())
+
+  usuario             Usuarios?   @relation(fields: [usuario_id], references: [id])
+  admision            Admisiones? @relation(fields: [admision_id], references: [id])
+
+  @@index([usuario_id])
+  @@index([created_at])
+  @@map("biometric_auth_attempts")
+}
+
+model BiometricDevices {
+  id                  String   @id @default(uuid())
+  serial_number       String   @unique
+  device_type         String   // 'huella_usb', 'facial', etc.
+  
+  manufacturer        String?
+  model               String?
+  firmware_version    String?
+  
+  location            String?
+  is_active           Boolean  @default(true)
+  max_failed_attempts Int?     @default(5)
+  cooldown_minutes    Int?     @default(15)
+  
+  api_key_hash        String?
+  last_seen           DateTime?
+  registered_by       String?
+  
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  registrador         Usuarios? @relation(fields: [registered_by], references: [id])
+  lockouts            BiometricLockouts[]
+
+  @@map("biometric_devices")
+}
+
+model BiometricLockouts {
+  id            String   @id @default(uuid())
+  usuario_id    String?
+  device_id     String?
+  reason        String
+  locked_until  DateTime
+  auto_unlock   Boolean  @default(true)
+  
+  created_at    DateTime @default(now())
+  created_by    String?
+
+  usuario       Usuarios?         @relation(fields: [usuario_id], references: [id])
+  device        BiometricDevices? @relation(fields: [device_id], references: [id])
+  creador       Usuarios?         @relation("lockout_creator", fields: [created_by], references: [id])
+
+  @@map("biometric_lockouts")
+}

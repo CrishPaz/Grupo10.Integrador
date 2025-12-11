@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # 1. BASE DE DATOS (Solo para tu App)
+  db:
+    image: postgres:15-alpine
+    container_name: salud_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin_salud
+      POSTGRES_PASSWORD: password_seguro_123
+      POSTGRES_DB: salud_laboral
+    volumes:
+      - ./docker/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # Puerto 5433 para evitar conflictos con tu PC
+    networks:
+      - salud_net
+
+  # 2. AUTOMATIZACIÓN (N8N) - Usando su propia DB interna
+  n8n:
+    image: n8nio/n8n
+    container_name: salud_n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+      # Hemos quitado la conexión a Postgres aquí para evitar conflictos
+    volumes:
+      - ./docker/n8n/workflows:/home/node/.n8n/workflows
+      - n8n_data:/home/node/.n8n
+    networks:
+      - salud_net
+
+volumes:
+  postgres_data:
+  n8n_data:
+
+networks:
+  salud_net:
+    driver: bridge

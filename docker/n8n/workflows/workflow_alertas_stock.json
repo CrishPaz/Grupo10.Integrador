@@ -1,0 +1,132 @@
+{
+  "name": "Alertas Automáticas de Stock",
+  "nodes": [
+    {
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.cron",
+      "position": [300, 200],
+      "parameters": {
+        "rule": {
+          "timezone": "America/Lima",
+          "hours": [8, 14, 20],
+          "minutes": [0]
+        }
+      }
+    },
+    {
+      "name": "Verificar Stock Bajo",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:3000/api/inventario-logistica/inventario/alertas/stock-bajo"
+      }
+    },
+    {
+      "name": "Procesar Alertas",
+      "type": "n8n-nodes-base.function",
+      "position": [700, 200],
+      "parameters": {
+        "functionCode": "const alertas = $input.first().json;\nconst alertasCriticas = [];\nconst alertasImportantes = [];\nconst alertasNormales = [];\n\n// Clasificar alertas por gravedad\nalertas.forEach(alerta => {\n  if (alerta.nivel_gravedad === 'CRITICO') {\n    alertasCriticas.push(alerta);\n  } else if (alerta.nivel_gravedad === 'ALTO') {\n    alertasImportantes.push(alerta);\n  } else {\n    alertasNormales.push(alerta);\n  }\n});\n\nreturn {\n  total: alertas.length,\n  criticas: alertasCriticas.length,\n  importantes: alertasImportantes.length,\n  normales: alertasNormales.length,\n  detalles: {\n    criticas: alertasCriticas,\n    importantes: alertasImportantes,\n    normales: alertasNormales\n  }\n};"
+      }
+    },
+    {
+      "name": "Enviar Alertas Críticas",
+      "type": "n8n-nodes-base.if",
+      "position": [900, 100],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.criticas}}",
+              "operation": "larger",
+              "value2": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Email Alertas Críticas",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1100, 100],
+      "parameters": {
+        "fromEmail": "alertas@saludlaboral.pe",
+        "toEmail": "inventario@saludlaboral.pe,compras@saludlaboral.pe",
+        "subject": "⚠️ ALERTAS CRÍTICAS DE STOCK - {{$now.toISOString().split('T')[0]}}",
+        "text": "Se han detectado {{$json.criticas}} alertas críticas de stock:\\n\\n{{$json.detalles.criticas.map(a => `- ${a.mensaje} (${a.item_nombre})`).join('\\n')}}\\n\\nPor favor, tomar acción inmediata.\\n\\nSistema Inteligente de Salud Laboral"
+      }
+    },
+    {
+      "name": "SMS Alertas Críticas",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1300, 100],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sms-provider.com/send",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "to",
+              "value": "+51987654321"
+            },
+            {
+              "name": "message",
+              "value": "ALERTA: {{$json.criticas}} items críticos en inventario. Revisar sistema."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Enviar Reporte Diario",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [900, 400],
+      "parameters": {
+        "fromEmail": "inventario@saludlaboral.pe",
+        "toEmail": "gerencia@saludlaboral.pe",
+        "subject": "📊 Reporte Diario de Inventario - {{$now.toISOString().split('T')[0]}}",
+        "text": "Reporte diario de inventario:\\n\\nTotal de ítems: {{$json.total}}\\nAlertas críticas: {{$json.criticas}}\\nAlertas importantes: {{$json.importantes}}\\n\\nDetalle de críticos:\\n{{$json.detalles.criticas.map(a => `- ${a.mensaje}`).join('\\n')}}\\n\\nSistema Inteligente de Salud Laboral"
+      }
+    },
+    {
+      "name": "Generar Pedido Automático",
+      "type": "n8n-nodes-base.if",
+      "position": [1100, 400],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.criticas}}",
+              "operation": "larger",
+              "value2": "5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crear Orden Compra",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1300, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/compras/ordenes/automatica",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alertas_criticas",
+              "value": "={{$json.detalles.criticas}}"
+            },
+            {
+              "name": "tipo",
+              "value": "REPOSICION_EMERGENCIA"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
