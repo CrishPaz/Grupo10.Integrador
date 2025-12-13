@@ -4,7 +4,10 @@
     {
       "name": "Webhook Nueva Muestra",
       "type": "n8n-nodes-base.webhook",
-      "position": [300, 200],
+      "position": [
+        300,
+        200
+      ],
       "parameters": {
         "httpMethod": "POST",
         "path": "nueva-muestra",
@@ -14,7 +17,10 @@
     {
       "name": "Crear Seguimiento",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [500, 200],
+      "position": [
+        500,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://localhost:3000/api/inventario-logistica/logistica/seguimiento/create",
@@ -44,7 +50,10 @@
     {
       "name": "Generar Código QR Muestra",
       "type": "n8n-nodes-base.function",
-      "position": [700, 200],
+      "position": [
+        700,
+        200
+      ],
       "parameters": {
         "functionCode": "const muestra = $input.first().json;\nconst datosQR = {\n  admision_id: muestra.admision_id,\n  tipo_muestra: muestra.tipo_muestra,\n  hora_toma: muestra.hora_toma_muestra,\n  paciente: muestra.paciente_nombre,\n  codigo_muestra: `M-${Date.now().toString(36).toUpperCase()}`\n};\n\nreturn {\n  ...muestra,\n  codigo_qr: JSON.stringify(datosQR),\n  codigo_muestra: datosQR.codigo_muestra\n};"
       }
@@ -52,7 +61,10 @@
     {
       "name": "Imprimir Etiquetas",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [900, 200],
+      "position": [
+        900,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://localhost:3000/api/inventario-logistica/etiquetas/imprimir",
@@ -74,7 +86,10 @@
     {
       "name": "Notificar Transportista",
       "type": "n8n-nodes-base.emailSend",
-      "position": [1100, 200],
+      "position": [
+        1100,
+        200
+      ],
       "parameters": {
         "fromEmail": "logistica@saludlaboral.pe",
         "toEmail": "transportista@empresa.com",
@@ -85,18 +100,24 @@
     {
       "name": "Timer para Seguimiento",
       "type": "n8n-nodes-base.wait",
-      "position": [1300, 200],
+      "position": [
+        1300,
+        200
+      ],
       "parameters": {
         "resume": "timer",
         "options": {
-          "time": 1800000 
+          "time": 1800000
         }
       }
     },
     {
       "name": "Verificar Estado Transporte",
       "type": "n8n-nodes-base.if",
-      "position": [1500, 200],
+      "position": [
+        1500,
+        200
+      ],
       "parameters": {
         "conditions": {
           "string": [
@@ -112,7 +133,10 @@
     {
       "name": "Calcular Tiempo Estimado",
       "type": "n8n-nodes-base.function",
-      "position": [1700, 200],
+      "position": [
+        1700,
+        200
+      ],
       "parameters": {
         "functionCode": "const seguimiento = $input.first().json;\nconst horaEnvio = new Date(seguimiento.hora_envio_muestra);\nconst horaActual = new Date();\nconst diffMinutos = Math.floor((horaActual - horaEnvio) / (1000 * 60));\nconst tiempoEstimado = 45; // minutos estimados\n\nif (diffMinutos > tiempoEstimado) {\n  return {\n    ...seguimiento,\n    estado: 'RETRASADO',\n    tiempo_transcurrido: diffMinutos,\n    alerta: `Muestra retrasada: ${diffMinutos - tiempoEstimado} minutos`\n  };\n} else {\n  return {\n    ...seguimiento,\n    tiempo_transcurrido: diffMinutos,\n    tiempo_restante: tiempoEstimado - diffMinutos\n  };\n}"
       }
@@ -120,7 +144,10 @@
     {
       "name": "Actualizar Estado Retrasado",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1900, 200],
+      "position": [
+        1900,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://localhost:3000/api/inventario-logistica/logistica/estados/update",
@@ -146,7 +173,10 @@
     {
       "name": "Notificar Retraso",
       "type": "n8n-nodes-base.emailSend",
-      "position": [2100, 200],
+      "position": [
+        2100,
+        200
+      ],
       "parameters": {
         "fromEmail": "alertas@saludlaboral.pe",
         "toEmail": "logistica@saludlaboral.pe,transportista@empresa.com",
@@ -157,7 +187,10 @@
     {
       "name": "Respuesta Exitosa",
       "type": "n8n-nodes-base.respondToWebhook",
-      "position": [2300, 200],
+      "position": [
+        2300,
+        200
+      ],
       "parameters": {
         "responseBody": {
           "success": true,
@@ -167,5 +200,124 @@
         }
       }
     }
-  ]
+  ],
+  "connections": {
+    "Webhook Nueva Muestra": {
+      "main": [
+        [
+          {
+            "node": "Crear Seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Generar Código QR Muestra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Código QR Muestra": {
+      "main": [
+        [
+          {
+            "node": "Imprimir Etiquetas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Imprimir Etiquetas": {
+      "main": [
+        [
+          {
+            "node": "Notificar Transportista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Transportista": {
+      "main": [
+        [
+          {
+            "node": "Timer para Seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Timer para Seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Verificar Estado Transporte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Estado Transporte": {
+      "main": [
+        [
+          {
+            "node": "Calcular Tiempo Estimado",
+            "type": "if",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta Exitosa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Tiempo Estimado": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Estado Retrasado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Estado Retrasado": {
+      "main": [
+        [
+          {
+            "node": "Notificar Retraso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Retraso": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Exitosa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
 }

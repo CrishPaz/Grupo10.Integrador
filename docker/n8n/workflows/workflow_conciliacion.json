@@ -4,19 +4,29 @@
     {
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.cron",
-      "position": [300, 200],
+      "position": [
+        300,
+        200
+      ],
       "parameters": {
         "rule": {
           "timezone": "America/Lima",
-          "hours": [22],
-          "minutes": [0]
+          "hours": [
+            22
+          ],
+          "minutes": [
+            0
+          ]
         }
       }
     },
     {
       "name": "Obtener Movimientos del Día",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [500, 200],
+      "position": [
+        500,
+        200
+      ],
       "parameters": {
         "method": "GET",
         "url": "http://localhost:3000/api/facturacion/caja/diaria",
@@ -33,7 +43,10 @@
     {
       "name": "Obtener Extracto Bancario",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [700, 200],
+      "position": [
+        700,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.banco.com/extracto",
@@ -56,7 +69,10 @@
     {
       "name": "Comparar Movimientos",
       "type": "n8n-nodes-base.function",
-      "position": [900, 200],
+      "position": [
+        900,
+        200
+      ],
       "parameters": {
         "functionCode": "const sistema = $input.first().json;\nconst banco = $input.all()[1].json;\n\n// Procesar movimientos del sistema\nconst movimientosSistema = {\n  efectivo: sistema.resumen_dia.efectivo || 0,\n  tarjeta: sistema.resumen_dia.tarjeta || 0,\n  transferencia: sistema.resumen_dia.transferencia || 0,\n  otros: sistema.resumen_dia.otros || 0,\n  total: sistema.resumen_dia.total_ingresos || 0\n};\n\n// Procesar extracto bancario\nconst movimientosBanco = {\n  efectivo: 0,\n  tarjeta: 0,\n  transferencia: 0,\n  otros: 0,\n  total: 0\n};\n\nbanco.transacciones.forEach(transaccion => {\n  const monto = parseFloat(transaccion.monto);\n  movimientosBanco.total += monto;\n  \n  switch(transaccion.tipo) {\n    case 'DEPOSITO_EFECTIVO':\n      movimientosBanco.efectivo += monto;\n      break;\n    case 'TARJETA':\n      movimientosBanco.tarjeta += monto;\n      break;\n    case 'TRANSFERENCIA':\n      movimientosBanco.transferencia += monto;\n      break;\n    default:\n      movimientosBanco.otros += monto;\n  }\n});\n\n// Calcular diferencias\nconst diferencias = {\n  efectivo: movimientosSistema.efectivo - movimientosBanco.efectivo,\n  tarjeta: movimientosSistema.tarjeta - movimientosBanco.tarjeta,\n  transferencia: movimientosSistema.transferencia - movimientosBanco.transferencia,\n  otros: movimientosSistema.otros - movimientosBanco.otros,\n  total: movimientosSistema.total - movimientosBanco.total\n};\n\n// Determinar estado\nconst estado = Math.abs(diferencias.total) < 0.01 ? 'CONCILIADO' : 'CON_DIFERENCIAS';\n\nreturn {\n  fecha: $now.toISOString().split('T')[0],\n  movimientos_sistema: movimientosSistema,\n  movimientos_banco: movimientosBanco,\n  diferencias,\n  estado,\n  observaciones: estado === 'CON_DIFERENCIAS' ? 'Se encontraron diferencias que requieren revisión' : 'Conciliación exitosa'\n};"
       }
@@ -64,7 +80,10 @@
     {
       "name": "Registrar Conciliación",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1100, 200],
+      "position": [
+        1100,
+        200
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://localhost:3000/api/facturacion/conciliacion/realizar",
@@ -90,7 +109,10 @@
     {
       "name": "Enviar Reporte Diferencias",
       "type": "n8n-nodes-base.if",
-      "position": [1300, 200],
+      "position": [
+        1300,
+        200
+      ],
       "parameters": {
         "conditions": {
           "number": [
@@ -106,7 +128,10 @@
     {
       "name": "Email con Diferencias",
       "type": "n8n-nodes-base.emailSend",
-      "position": [1500, 200],
+      "position": [
+        1500,
+        200
+      ],
       "parameters": {
         "fromEmail": "tesoreria@saludlaboral.pe",
         "toEmail": "tesoreria@saludlaboral.pe",
@@ -126,10 +151,86 @@
     {
       "name": "Registrar en Log",
       "type": "n8n-nodes-base.function",
-      "position": [1300, 400],
+      "position": [
+        1300,
+        400
+      ],
       "parameters": {
         "functionCode": "const resultado = $input.first().json;\nconsole.log(`Conciliación ${resultado.fecha}: ${resultado.estado}`);\nconsole.log('Diferencias:', resultado.diferencias);\nreturn resultado;"
       }
     }
-  ]
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Obtener Movimientos del Día",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Movimientos del Día": {
+      "main": [
+        [
+          {
+            "node": "Obtener Extracto Bancario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Extracto Bancario": {
+      "main": [
+        [
+          {
+            "node": "Comparar Movimientos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comparar Movimientos": {
+      "main": [
+        [
+          {
+            "node": "Registrar Conciliación",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registrar en Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Conciliación": {
+      "main": [
+        [
+          {
+            "node": "Enviar Reporte Diferencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Reporte Diferencias": {
+      "main": [
+        [
+          {
+            "node": "Email con Diferencias",
+            "type": "if",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
 }

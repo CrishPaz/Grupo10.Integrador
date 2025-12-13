@@ -4,19 +4,31 @@
     {
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.cron",
-      "position": [300, 200],
+      "position": [
+        300,
+        200
+      ],
       "parameters": {
         "rule": {
           "timezone": "America/Lima",
-          "hours": [8, 14, 20],
-          "minutes": [0]
+          "hours": [
+            8,
+            14,
+            20
+          ],
+          "minutes": [
+            0
+          ]
         }
       }
     },
     {
       "name": "Verificar Stock Bajo",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [500, 200],
+      "position": [
+        500,
+        200
+      ],
       "parameters": {
         "method": "GET",
         "url": "http://localhost:3000/api/inventario-logistica/inventario/alertas/stock-bajo"
@@ -25,7 +37,10 @@
     {
       "name": "Procesar Alertas",
       "type": "n8n-nodes-base.function",
-      "position": [700, 200],
+      "position": [
+        700,
+        200
+      ],
       "parameters": {
         "functionCode": "const alertas = $input.first().json;\nconst alertasCriticas = [];\nconst alertasImportantes = [];\nconst alertasNormales = [];\n\n// Clasificar alertas por gravedad\nalertas.forEach(alerta => {\n  if (alerta.nivel_gravedad === 'CRITICO') {\n    alertasCriticas.push(alerta);\n  } else if (alerta.nivel_gravedad === 'ALTO') {\n    alertasImportantes.push(alerta);\n  } else {\n    alertasNormales.push(alerta);\n  }\n});\n\nreturn {\n  total: alertas.length,\n  criticas: alertasCriticas.length,\n  importantes: alertasImportantes.length,\n  normales: alertasNormales.length,\n  detalles: {\n    criticas: alertasCriticas,\n    importantes: alertasImportantes,\n    normales: alertasNormales\n  }\n};"
       }
@@ -33,7 +48,10 @@
     {
       "name": "Enviar Alertas Críticas",
       "type": "n8n-nodes-base.if",
-      "position": [900, 100],
+      "position": [
+        900,
+        100
+      ],
       "parameters": {
         "conditions": {
           "number": [
@@ -49,7 +67,10 @@
     {
       "name": "Email Alertas Críticas",
       "type": "n8n-nodes-base.emailSend",
-      "position": [1100, 100],
+      "position": [
+        1100,
+        100
+      ],
       "parameters": {
         "fromEmail": "alertas@saludlaboral.pe",
         "toEmail": "inventario@saludlaboral.pe,compras@saludlaboral.pe",
@@ -60,7 +81,10 @@
     {
       "name": "SMS Alertas Críticas",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1300, 100],
+      "position": [
+        1300,
+        100
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.sms-provider.com/send",
@@ -82,7 +106,10 @@
     {
       "name": "Enviar Reporte Diario",
       "type": "n8n-nodes-base.emailSend",
-      "position": [900, 400],
+      "position": [
+        900,
+        400
+      ],
       "parameters": {
         "fromEmail": "inventario@saludlaboral.pe",
         "toEmail": "gerencia@saludlaboral.pe",
@@ -93,7 +120,10 @@
     {
       "name": "Generar Pedido Automático",
       "type": "n8n-nodes-base.if",
-      "position": [1100, 400],
+      "position": [
+        1100,
+        400
+      ],
       "parameters": {
         "conditions": {
           "number": [
@@ -109,7 +139,10 @@
     {
       "name": "Crear Orden Compra",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1300, 400],
+      "position": [
+        1300,
+        400
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://localhost:3000/api/compras/ordenes/automatica",
@@ -128,5 +161,83 @@
         }
       }
     }
-  ]
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Verificar Stock Bajo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Stock Bajo": {
+      "main": [
+        [
+          {
+            "node": "Procesar Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Alertas": {
+      "main": [
+        [
+          {
+            "node": "Enviar Alertas Críticas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar Reporte Diario",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generar Pedido Automático",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Alertas Críticas": {
+      "main": [
+        [
+          {
+            "node": "Email Alertas Críticas",
+            "type": "if",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Alertas Críticas": {
+      "main": [
+        [
+          {
+            "node": "SMS Alertas Críticas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Pedido Automático": {
+      "main": [
+        [
+          {
+            "node": "Crear Orden Compra",
+            "type": "if",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
 }

@@ -1,5 +1,24 @@
 <template>
   <div class="factura-form-container">
+    <!-- Notificaciones -->
+    <div v-if="errorMessage" class="fixed top-4 right-4 z-50 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg max-w-md">
+      <div class="flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
+        <span>{{ errorMessage }}</span>
+      </div>
+    </div>
+
+    <div v-if="successMessage" class="fixed top-4 right-4 z-50 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg max-w-md">
+      <div class="flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <span>{{ successMessage }}</span>
+      </div>
+    </div>
+
     <div class="bg-white rounded-lg shadow-md p-6">
       <h2 class="text-2xl font-bold text-gray-800 mb-6">
         {{ editing ? 'Editar Factura' : 'Nueva Factura' }}
@@ -294,7 +313,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useFacturacionStore } from '~/stores/facturacion';
 
 interface Usuario {
   nombres: string;
@@ -336,7 +354,19 @@ const props = defineProps({
 
 const emit = defineEmits(['success', 'cancel']);
 
-const facturacionStore = useFacturacionStore();
+// Estado para notificaciones
+const errorMessage = ref('');
+const successMessage = ref('');
+
+function showError(message: string) {
+  errorMessage.value = message;
+  setTimeout(() => errorMessage.value = '', 5000);
+}
+
+function showSuccess(message: string) {
+  successMessage.value = message;
+  setTimeout(() => successMessage.value = '', 3000);
+}
 
 // Estado del formulario
 const formData = ref({
@@ -400,11 +430,12 @@ async function buscarAdmisiones() {
   }
   
   try {
-    const response = await $fetch<{ data: Admision[] }>(`/api/admisiones/buscar?q=${searchAdmision.value}`);
+    const response = await $fetch<{ data: Admision[] }>(`/api/admissions/buscar?q=${searchAdmision.value}`);
     admisionesFiltradas.value = response.data;
     showAdmisionesList.value = true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error buscando admisiones:', error);
+    showError('Error al buscar admisiones. Por favor, intente nuevamente.');
   }
 }
 
@@ -455,8 +486,9 @@ async function cambiarTipoComprobante() {
     
     formData.value.serie = response.serie;
     formData.value.numero = response.numero;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error obteniendo serie/número:', error);
+    showError('Error al obtener serie y número. Por favor, intente nuevamente.');
   }
 }
 
@@ -510,11 +542,13 @@ async function submitForm() {
     });
     
     if (response.success) {
+      showSuccess('Factura creada exitosamente');
       emit('success', response.data);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creando factura:', error);
-    alert('Error al crear la factura. Por favor, intente nuevamente.');
+    const message = error.data?.message || error.message || 'Error al crear la factura';
+    showError(message);
   } finally {
     isSubmitting.value = false;
   }
@@ -564,8 +598,9 @@ async function cargarFacturaExistente() {
   try {
     const response = await $fetch<{ data: any }>(`/api/facturacion/facturas/${props.facturaId}`);
     formData.value = response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error cargando factura:', error);
+    showError('Error al cargar la factura. Por favor, intente nuevamente.');
   }
 }
 </script>

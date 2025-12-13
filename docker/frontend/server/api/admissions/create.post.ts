@@ -24,6 +24,28 @@ export default defineEventHandler(async (event) => {
       }
     })
 
+    // Trigger n8n webhook for confirmation notifications
+    const webhookUrl = process.env.N8N_WEBHOOK_URL + '/admission-created'
+    if (webhookUrl) {
+      try {
+        console.log('🔔 Enviando webhook a:', webhookUrl)
+        const response = await $fetch(webhookUrl, {
+          method: 'POST',
+          body: {
+            admission_id: admission.id
+          }
+        })
+        console.log('✅ Webhook de confirmación enviado a n8n:', response)
+      } catch (webhookError: any) {
+        console.error('⚠️ Error al enviar webhook a n8n:', webhookError)
+        console.error('URL intentada:', webhookUrl)
+        console.error('Detalles del error:', webhookError.message || webhookError)
+        // No lanzamos error para que la admisión se cree aunque falle el webhook
+      }
+    } else {
+      console.warn('⚠️ N8N_WEBHOOK_URL no está configurada')
+    }
+
     return { success: true, admission }
   } catch (error: any) {
     console.error('Error creating admission:', error)

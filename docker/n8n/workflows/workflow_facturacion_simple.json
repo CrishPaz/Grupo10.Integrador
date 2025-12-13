@@ -1,0 +1,97 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "invoice-created",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Factura Creada",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -384,
+        816
+      ],
+      "webhookId": "invoice-created",
+      "id": "e121ecfe-fe8e-472f-b379-df2f285a6cb7",
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  f.*,\n  a.fecha_programada,\n  a.tipo_examen,\n  u.nombres,\n  u.apellidos,\n  u.email,\n  u.dni,\n  e.razon_social as empresa_razon_social,\n  e.ruc as empresa_ruc\nFROM facturas f\nLEFT JOIN admisiones a ON f.admision_id = a.id\nLEFT JOIN pacientes p ON a.paciente_id = p.id\nLEFT JOIN usuarios u ON p.usuario_id = u.id\nLEFT JOIN empresas e ON p.empresa_id = e.id\nWHERE f.id = $1",
+        "options": {
+          "queryReplacement": "={{ $json.body.factura_id }}"
+        }
+      },
+      "name": "Obtener Datos Factura",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        -192,
+        816
+      ],
+      "id": "ec252a52-08f7-43a1-9da6-31ef9bed7fe3",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "jpZd2RxgtoBEbyox",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "facturacion@saludlaboral.pe",
+        "toEmail": "={{ $json.receptor_email }}",
+        "subject": "=Factura {{ $json.serie }}-{{ $json.numero }} - Clínica Salud Laboral",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<style>\n    /* Estilos base para compatibilidad móvil */\n    @media only screen and (max-width: 600px) {\n        .invoice-box table tr.top table td { width: 100%; display: block; text-align: center; }\n        .invoice-box table tr.information table td { width: 100%; display: block; text-align: center; }\n    }\n</style>\n</head>\n<body style=\"margin: 0; padding: 0; background-color: #f4f7f6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;\">\n\n<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">\n    <tr>\n        <td style=\"padding: 20px 0;\">\n            <table align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"600\" style=\"background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e0e0e0;\">\n                \n                <tr>\n                    <td bgcolor=\"#0056b3\" style=\"padding: 30px 20px; text-align: center;\">\n                        <h1 style=\"color: #ffffff; margin: 0; font-size: 24px; font-weight: 500;\">Clínica Salud Laboral</h1>\n                    </td>\n                </tr>\n\n                <tr>\n                    <td style=\"padding: 30px 40px; color: #333333;\">\n                        <h2 style=\"margin-top: 0; color: #333333; font-size: 20px;\">Estimado cliente,</h2>\n                        <p style=\"font-size: 16px; line-height: 1.6; color: #555555; margin-bottom: 25px;\">\n                            Adjunto encontrará su factura electrónica generada por los servicios brindados recientemente.\n                        </p>\n\n                        <div style=\"background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 20px;\">\n                            <table width=\"100%\" style=\"border-collapse: collapse;\">\n                                <tr>\n                                    <td style=\"color: #666; font-size: 14px; padding-bottom: 8px;\">Número de Factura:</td>\n                                    <td style=\"text-align: right; font-weight: bold; color: #333; padding-bottom: 8px;\">\n                                        {{ $json.serie }}-{{ $json.numero }}\n                                    </td>\n                                </tr>\n                                <tr>\n                                    <td style=\"color: #666; font-size: 14px; padding-bottom: 15px;\">Fecha de Emisión:</td>\n                                    <td style=\"text-align: right; font-weight: bold; color: #333; padding-bottom: 15px;\">\n                                        {{ $json.fecha_emision }}\n                                    </td>\n                                </tr>\n                                <tr>\n                                    <td colspan=\"2\" style=\"border-top: 1px solid #ddd; padding-top: 15px;\"></td>\n                                </tr>\n                                <tr>\n                                    <td style=\"font-size: 16px; font-weight: bold; color: #333;\">Total a Pagar:</td>\n                                    <td style=\"text-align: right;\">\n                                        <span style=\"font-size: 22px; font-weight: bold; color: #0056b3;\">S/ {{ $json.total }}</span>\n                                    </td>\n                                </tr>\n                            </table>\n                        </div>\n\n                        <p style=\"margin-top: 25px; font-size: 14px; color: #666; line-height: 1.5;\">\n                            Puede descargar el comprobante adjunto a este correo. Si tiene alguna duda sobre el detalle de los servicios, no dude en contactarnos.\n                        </p>\n                    </td>\n                </tr>\n\n                <tr>\n                    <td bgcolor=\"#f4f7f6\" style=\"padding: 20px; text-align: center; font-size: 12px; color: #888888; border-top: 1px solid #eeeeee;\">\n                        <p style=\"margin: 0;\">&copy; {{ new Date().getFullYear() }} Clínica Salud Laboral</p>\n                        <p style=\"margin: 5px 0 0 0;\">Este es un correo automático, por favor no responder.</p>\n                    </td>\n                </tr>\n            </table>\n        </td>\n    </tr>\n</table>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "name": "Enviar Factura por Email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [
+        16,
+        816
+      ],
+      "id": "e047884e-a4ef-4340-963b-4aa060b3adca",
+      "typeVersion": 2.1,
+      "webhookId": "efbcf6f6-be14-4072-9a56-667baa8515b8",
+      "credentials": {
+        "smtp": {
+          "id": "bNnD5wJ125nvx7qq",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Factura Creada": {
+      "main": [
+        [
+          {
+            "node": "Obtener Datos Factura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Datos Factura": {
+      "main": [
+        [
+          {
+            "node": "Enviar Factura por Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e5054d290394b13e0f87277cad44d3d391079c0dfcab7572d689702b43244a52"
+  }
+}

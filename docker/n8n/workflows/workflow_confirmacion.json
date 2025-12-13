@@ -1,88 +1,101 @@
 {
-  "name": "Confirmación Automática de Admisión",
   "nodes": [
     {
-      "name": "Webhook Trigger",
-      "type": "n8n-nodes-base.webhook",
-      "position": [
-        300,
-        200
-      ],
       "parameters": {
         "httpMethod": "POST",
         "path": "admission-created",
-        "responseMode": "responseNode"
-      }
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -480,
+        64
+      ],
+      "id": "4407a280-4656-46a8-9b15-1cc228dee917",
+      "typeVersion": 2.1,
+      "webhookId": "865af799-8dbe-4c40-8a77-7497d9762e5b"
     },
     {
-      "name": "Get Admission Details",
-      "type": "n8n-nodes-base.postgres",
-      "position": [
-        500,
-        200
-      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT a.*, u.nombres, u.apellidos, u.email, u.telefono, e.razon_social, m.nombres as medico_nombres, m.apellidos as medico_apellidos FROM admisiones a JOIN pacientes p ON a.paciente_id = p.id JOIN usuarios u ON p.usuario_id = u.id LEFT JOIN empresas e ON p.empresa_id = e.id LEFT JOIN usuarios m ON a.medico_id = m.id WHERE a.id = $1",
-        "additionalFields": {
-          "queryParams": {
-            "parameter": "admission_id",
-            "value": "={{$json.admission_id}}"
-          }
+        "options": {
+          "queryReplacement": "={{ $json.body.admission_id }}"
+        }
+      },
+      "name": "Get Admission Details",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        -208,
+        64
+      ],
+      "id": "15c43514-4b49-4b99-8988-c962d36bbdff",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "jpZd2RxgtoBEbyox",
+          "name": "Postgres account"
         }
       }
     },
     {
+      "parameters": {
+        "fromEmail": "janobqr@gmail.com",
+        "toEmail": "={{$json.email}}",
+        "subject": "Confirmación de Cita - Salud Laboral",
+        "html": "=<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Confirmación de Cita</title></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>\n  <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>\n   <h1 style='color: white; margin: 0;'>¡Cita Confirmada!</h1>\n  </div>\n  <div style='background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);'>\n    <h2 style='color: #333; margin-top: 0;'>Hola {{$json.nombres}},</h2>\n   <p>Tu cita para evaluación ocupacional ha sido programada exitosamente.</p>\n    \n    <div style='background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;'>\n      <h3 style='margin-top: 0; color: #667eea;'>Detalles de la Cita</h3>\n      <table style='width: 100%;'>\n        <tr>\n          <td style='padding: 8px 0; width: 120px; font-weight: bold;'>Fecha y Hora:</td>\n          <td style='padding: 8px 0;'>{{$json.fecha_programada}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Tipo de Examen:</td>\n          <td style='padding: 8px 0;'>{{$json.tipo_examen}}</td>\n       </tr>\n       <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Médico:</td>\n          <td style='padding: 8px 0;'>{{$json.medico_nombres}} {{$json.medico_apellidos}}</td>\n        </tr>\n      </table>\n    </div>\n    \n   <div style='background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50;'>\n      <h4 style='margin-top: 0; color: #2e7d32;'>Importante</h4>\n     <ul style='margin-bottom: 0;'>\n        <li>Presentarse 15 minutos antes de la hora programada</li>\n       <li>Traer DNI original</li>\n        <li>Traer exámenes pre-ingreso si los tiene</li>\n       <li>Usar ropa cómoda para el examen físico</li>\n      </ul>\n    </div>\n    \n   <p style='text-align: center; margin-top: 30px;'>\n      <a href='https://saludlaboral.pe/mis-citas' style='display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;'>Ver mis citas</a>\n    </p>\n    \n   <hr style='border: none; border-top: 1px solid #eee; margin: 30px 0;'>\n    \n    <p style='font-size: 12px; color: #666; text-align: center;'>\n      Si necesita reprogramar o cancelar su cita, contáctenos al (01) 123-4567<br>\n      o responda a este correo con al menos 24 horas de anticipación.\n    </p>\n  </div>\n</body></html>",
+        "options": {}
+      },
       "name": "Send Email Confirmation",
       "type": "n8n-nodes-base.emailSend",
       "position": [
-        700,
-        150
+        208,
+        0
       ],
-      "parameters": {
-        "fromEmail": "citas@saludlaboral.pe",
-        "toEmail": "={{$json.email}}",
-        "subject": "Confirmación de Cita - Salud Laboral",
-        "html": "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Confirmación de Cita</title></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>\n  <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>\n   <h1 style='color: white; margin: 0;'>¡Cita Confirmada!</h1>\n  </div>\n  <div style='background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);'>\n    <h2 style='color: #333; margin-top: 0;'>Hola {{$json.nombres}},</h2>\n   <p>Tu cita para evaluación ocupacional ha sido programada exitosamente.</p>\n    \n    <div style='background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;'>\n      <h3 style='margin-top: 0; color: #667eea;'>Detalles de la Cita</h3>\n      <table style='width: 100%;'>\n        <tr>\n          <td style='padding: 8px 0; width: 120px; font-weight: bold;'>Fecha y Hora:</td>\n          <td style='padding: 8px 0;'>{{$json.fecha_programada}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Tipo de Examen:</td>\n          <td style='padding: 8px 0;'>{{$json.tipo_examen}}</td>\n       </tr>\n       <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Médico:</td>\n          <td style='padding: 8px 0;'>{{$json.medico_nombres}} {{$json.medico_apellidos}}</td>\n        </tr>\n      </table>\n    </div>\n    \n   <div style='background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50;'>\n      <h4 style='margin-top: 0; color: #2e7d32;'>Importante</h4>\n     <ul style='margin-bottom: 0;'>\n        <li>Presentarse 15 minutos antes de la hora programada</li>\n       <li>Traer DNI original</li>\n        <li>Traer exámenes pre-ingreso si los tiene</li>\n       <li>Usar ropa cómoda para el examen físico</li>\n      </ul>\n    </div>\n    \n   <p style='text-align: center; margin-top: 30px;'>\n      <a href='https://saludlaboral.pe/mis-citas' style='display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;'>Ver mis citas</a>\n    </p>\n    \n   <hr style='border: none; border-top: 1px solid #eee; margin: 30px 0;'>\n    \n    <p style='font-size: 12px; color: #666; text-align: center;'>\n      Si necesita reprogramar o cancelar su cita, contáctenos al (01) 123-4567<br>\n      o responda a este correo con al menos 24 horas de anticipación.\n    </p>\n  </div>\n</body></html>"
-      }
-    },
-    {
-      "name": "Send SMS Reminder",
-      "type": "n8n-nodes-base.httpRequest",
-      "position": [
-        700,
-        300
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.sms-provider.com/send",
-        "authentication": "genericCredentialType",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "to",
-              "value": "={{$json.telefono}}"
-            },
-            {
-              "name": "message",
-              "value": "Clínica Salud: Su cita está programada para {{$json.fecha_programada}}. Presentarse 15 min antes. Traer DNI."
-            }
-          ]
+      "id": "afd9c032-cc87-4e9a-b248-0ec9669f66b2",
+      "typeVersion": 2.1,
+      "webhookId": "d18a724c-bae1-4fac-a8da-fc370207ac5d",
+      "credentials": {
+        "smtp": {
+          "id": "bNnD5wJ125nvx7qq",
+          "name": "SMTP account"
         }
       }
     },
     {
+      "parameters": {
+        "options": {}
+      },
       "name": "Return Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "position": [
-        1500,
-        200
+        1008,
+        64
       ],
+      "id": "12478b1c-dfff-4334-bee1-c4403bce9fcf",
+      "typeVersion": 1.5
+    },
+    {
       "parameters": {
-        "responseBody": {
-          "success": true,
-          "message": "Notificaciones enviadas exitosamente"
+        "from": "+17755225902",
+        "to": "=+51{{ $json.telefono }}",
+        "message": "=Clínica Salud: Su cita está programada para {{$json.fecha_programada}}. Presentarse 15 min antes. Traer DNI.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        208,
+        224
+      ],
+      "id": "73f4cf69-5f4f-4e69-ba62-5e893ba898ed",
+      "name": "Send an SMS/MMS/WhatsApp message",
+      "credentials": {
+        "twilioApi": {
+          "id": "LFIASRxV94jZqZyT",
+          "name": "Twilio account"
         }
       }
     }
@@ -106,11 +119,9 @@
             "node": "Send Email Confirmation",
             "type": "main",
             "index": 0
-          }
-        ],
-        [
+          },
           {
-            "node": "Send SMS Reminder",
+            "node": "Send an SMS/MMS/WhatsApp message",
             "type": "main",
             "index": 0
           }
@@ -128,7 +139,7 @@
         ]
       ]
     },
-    "Send SMS Reminder": {
+    "Send an SMS/MMS/WhatsApp message": {
       "main": [
         [
           {
@@ -139,5 +150,10 @@
         ]
       ]
     }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e5054d290394b13e0f87277cad44d3d391079c0dfcab7572d689702b43244a52"
   }
 }

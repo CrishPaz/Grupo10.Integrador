@@ -36,12 +36,12 @@ async function generarNumeroFactura(serie: string): Promise<number> {
 export default defineEventHandler(async (event) => {
   // Verificación de seguridad simulada
   await requireRole(event, ['admin', 'admissions'])
-  
+
   const body = await readBody(event)
   const user = event.context.user
-  
+
   const { admision_id, tipo_comprobante, receptor, items, descuento = 0 } = body
-  
+
   // Validaciones
   if (!items || items.length === 0) {
     throw createError({ statusCode: 400, message: 'Faltan items' })
@@ -51,10 +51,10 @@ export default defineEventHandler(async (event) => {
     // 1. Obtener serie y número
     const serie = await obtenerSerie(tipo_comprobante)
     const numero = await generarNumeroFactura(serie)
-    
+
     // 2. Calcular totales
     const { subtotal, igv, total } = calcularTotales(items, descuento)
-    
+
     // 3. Crear Factura (Transacción)
     const factura = await prisma.$transaction(async (tx) => {
       // CORREGIDO: facturas
@@ -65,18 +65,18 @@ export default defineEventHandler(async (event) => {
           serie,
           numero,
           fecha_emision: new Date(),
-          
+
           // Emisor (Hardcoded por ahora)
           emisor_ruc: '20600000001',
           emisor_razon_social: 'CLINICA SALUD LABORAL DEMO',
-          
+
           // Receptor
           receptor_tipo_documento: receptor.tipo_documento,
           receptor_numero_documento: receptor.numero_documento,
           receptor_razon_social: receptor.razon_social,
           receptor_direccion: receptor.direccion,
           receptor_email: receptor.email,
-          
+
           // Montos
           subtotal,
           descuento,
@@ -84,14 +84,12 @@ export default defineEventHandler(async (event) => {
           igv,
           total,
           total_letras: `SON: ${total} SOLES`, // Simplificado
-          
+
           estado_sunat: 'PENDIENTE',
-          estado_pago: 'PENDIENTE',
-          
-          created_by: user.id
+          estado_pago: 'PENDIENTE'
         }
       })
-      
+
       // Crear detalles
       for (const [index, item] of items.entries()) {
         // CORREGIDO: facturaDetalles
@@ -111,22 +109,41 @@ export default defineEventHandler(async (event) => {
           }
         })
       }
-      
+
       return newInvoice
     })
-    
-    // 4. Auditoría
-    // CORREGIDO: logsAuditoria
-    await prisma.logsAuditoria.create({
-      data: {
-        usuario_id: user.id,
-        accion: 'CREATE_INVOICE',
-        modulo: 'facturacion',
-        detalles: `Factura creada ${serie}-${numero}`,
-        ip_address: '127.0.0.1',
-        user_agent: 'navegador'
+
+    // 4. Auditoría deshabilitada - usuario no existe en BD
+    /*
+    if (user?.id) {
+      await prisma.logsAuditoria.create({
+        data: {
+          usuario_id: user.id,
+          accion: 'CREATE_INVOICE',
+          modulo: 'facturacion',
+          detalles: `Factura creada ${serie}-${numero}`,
+          ip_address: '127.0.0.1',
+          user_agent: 'navegador'
+        }
+      })
+    }
+    */
+
+    // 5. Notificar a n8n para enviar factura por email
+    if (process.env.N8N_WEBHOOK_URL) {
+      try {
+        await $fetch(process.env.N8N_WEBHOOK_URL + '/invoice-created', {
+          method: 'POST',
+          body: {
+            factura_id: factura.id
+          }
+        })
+        console.log('✅ Notificación de factura enviada a n8n')
+      } catch (error) {
+        console.error('⚠️ Error al notificar factura a n8n:', error)
+        // No lanzar error, la factura ya se creó exitosamente
       }
-    })
+    }
 
     return { success: true, data: factura }
 

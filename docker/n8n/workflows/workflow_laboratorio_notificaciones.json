@@ -1,158 +1,122 @@
 {
-  "name": "Flujo de Notificaciones de Laboratorio",
   "nodes": [
     {
-      "name": "Muestra Recibida",
-      "type": "n8n-nodes-base.webhook",
-      "position": [300, 200],
       "parameters": {
         "httpMethod": "POST",
         "path": "sample-received",
-        "responseMode": "responseNode"
-      }
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Muestra Recibida",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        -496,
+        528
+      ],
+      "id": "baeed7d4-e213-4a24-b63f-e206927ae53a",
+      "typeVersion": 2.1,
+      "webhookId": "24691e62-9ee3-4b2d-ba41-f03c47e20d20"
     },
     {
-      "name": "Obtener Detalles Muestra",
-      "type": "n8n-nodes-base.postgres",
-      "position": [500, 200],
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT m.*, u.nombres as paciente_nombres, u.apellidos as paciente_apellidos, u.email as paciente_email, u.telefono, e.razon_social FROM muestras_laboratorio m JOIN pacientes p ON m.paciente_id = p.id JOIN usuarios u ON p.usuario_id = u.id LEFT JOIN empresas e ON p.empresa_id = e.id WHERE m.id = $1",
-        "additionalFields": {
-          "queryParams": {
-            "parameter": "sample_id",
-            "value": "={{$json.sample_id}}"
-          }
+        "options": {
+          "queryReplacement": "={{ $json.body.sample_id }}"
+        }
+      },
+      "name": "Obtener Detalles Muestra",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        -256,
+        528
+      ],
+      "id": "63d8e42b-47a1-4223-bf5d-52c5266ae089",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "jpZd2RxgtoBEbyox",
+          "name": "Postgres account"
         }
       }
     },
     {
-      "name": "Notificar Recepción al Paciente",
-      "type": "n8n-nodes-base.emailSend",
-      "position": [700, 150],
       "parameters": {
-        "fromEmail": "laboratorio@saludlaboral.pe",
+        "fromEmail": "janobqr@gmai.com",
         "toEmail": "={{$json.paciente_email}}",
         "subject": "Confirmación de Recepción de Muestra",
-        "html": "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Muestra Recibida</title></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>\n  <div style='background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>\n    <h1 style='color: white; margin: 0;'>Muestra Recibida</h1>\n  </div>\n  <div style='background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);'>\n    <h2 style='color: #333; margin-top: 0;'>Hola {{$json.paciente_nombres}},</h2>\n    <p>Hemos recibido su muestra para análisis de laboratorio.</p>\n    \n    <div style='background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;'>\n      <h3 style='margin-top: 0; color: #1e40af;'>Información de la Muestra</h3>\n      <table style='width: 100%;'>\n        <tr>\n          <td style='padding: 8px 0; width: 120px; font-weight: bold;'>Código:</td>\n          <td style='padding: 8px 0;'>{{$json.codigo_muestra}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Tipo:</td>\n          <td style='padding: 8px 0;'>{{$json.tipo_muestra}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Fecha Recepción:</td>\n          <td style='padding: 8px 0;'>{{$json.fecha_recepcion}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>N° Exámenes:</td>\n          <td style='padding: 8px 0;'>{{$json.examenes_solicitados}}</td>\n        </tr>\n      </table>\n    </div>\n    \n    <div style='background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d97706;'>\n      <p style='margin: 0; font-size: 14px;'>\n        <strong>Tiempo estimado de entrega:</strong> 24-48 horas hábiles.<br>\n        Los resultados estarán disponibles en su portal de paciente.\n      </p>\n    </div>\n    \n    <p style='text-align: center; margin-top: 30px;'>\n      <a href='https://saludlaboral.pe/mis-resultados' style='display: inline-block; background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;'>\n        Ver Estado de Mis Exámenes\n      </a>\n    </p>\n    \n    <hr style='border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;'>\n    \n    <p style='font-size: 12px; color: #6b7280; text-align: center;'>\n      Si tiene preguntas sobre su muestra, contáctenos al (01) 123-4567<br>\n      o responda a este correo.\n    </p>\n  </div>\n</body></html>"
-      }
-    },
-    {
-      "name": "Resultados Listos",
-      "type": "n8n-nodes-base.webhook",
-      "position": [300, 400],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "results-ready",
-        "responseMode": "responseNode"
-      }
-    },
-    {
-      "name": "Obtener Detalles Resultados",
-      "type": "n8n-nodes-base.postgres",
-      "position": [500, 400],
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT s.*, m.codigo_muestra, u.nombres as paciente_nombres, u.apellidos as paciente_apellidos, u.email as paciente_email, t.nombre as examen_nombre FROM solicitudes_laboratorio s JOIN muestras_laboratorio m ON s.muestra_id = m.id JOIN pacientes p ON m.paciente_id = p.id JOIN usuarios u ON p.usuario_id = u.id JOIN tipos_examen_laboratorio t ON s.tipo_examen_id = t.id WHERE s.id = $1",
-        "additionalFields": {
-          "queryParams": {
-            "parameter": "solicitud_id",
-            "value": "={{$json.solicitud_id}}"
-          }
+        "emailFormat": "=html",
+        "html": "=<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Muestra Recibida</title></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>\n  <div style='background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>\n    <h1 style='color: white; margin: 0;'>Muestra Recibida</h1>\n  </div>\n  <div style='background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);'>\n    <h2 style='color: #333; margin-top: 0;'>Hola {{$json.paciente_nombres}},</h2>\n    <p>Hemos recibido su muestra para análisis de laboratorio.</p>\n    \n    <div style='background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;'>\n      <h3 style='margin-top: 0; color: #1e40af;'>Información de la Muestra</h3>\n      <table style='width: 100%;'>\n        <tr>\n          <td style='padding: 8px 0; width: 120px; font-weight: bold;'>Código:</td>\n          <td style='padding: 8px 0;'>{{$json.codigo_muestra}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Tipo:</td>\n          <td style='padding: 8px 0;'>{{$json.tipo_muestra}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Fecha Recepción:</td>\n          <td style='padding: 8px 0;'>{{$json.fecha_recepcion}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>N° Exámenes:</td>\n          <td style='padding: 8px 0;'>{{$json.examenes_solicitados}}</td>\n        </tr>\n      </table>\n    </div>\n    \n    <div style='background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d97706;'>\n      <p style='margin: 0; font-size: 14px;'>\n        <strong>Tiempo estimado de entrega:</strong> 24-48 horas hábiles.<br>\n        Los resultados estarán disponibles en su portal de paciente.\n      </p>\n    </div>\n    \n    <p style='text-align: center; margin-top: 30px;'>\n      <a href='https://saludlaboral.pe/mis-resultados' style='display: inline-block; background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;'>\n        Ver Estado de Mis Exámenes\n      </a>\n    </p>\n    \n    <hr style='border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;'>\n    \n    <p style='font-size: 12px; color: #6b7280; text-align: center;'>\n      Si tiene preguntas sobre su muestra, contáctenos al (01) 123-4567<br>\n      o responda a este correo.\n    </p>\n  </div>\n</body></html>",
+        "options": {}
+      },
+      "name": "Notificar Recepción al Paciente",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [
+        0,
+        528
+      ],
+      "id": "1448e592-ff18-490d-9198-e64a2a8be14f",
+      "typeVersion": 2.1,
+      "webhookId": "04eac6de-1909-4c84-a965-3ce6426cbc19",
+      "credentials": {
+        "smtp": {
+          "id": "bNnD5wJ125nvx7qq",
+          "name": "SMTP account"
         }
       }
     },
     {
-      "name": "Notificar Resultados al Paciente",
-      "type": "n8n-nodes-base.emailSend",
-      "position": [700, 350],
       "parameters": {
-        "fromEmail": "resultados@saludlaboral.pe",
-        "toEmail": "={{$json.paciente_email}}",
-        "subject": "Resultados de Laboratorio Disponibles",
-        "html": "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Resultados Disponibles</title></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>\n  <div style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>\n    <h1 style='color: white; margin: 0;'>Resultados Listos</h1>\n  </div>\n  <div style='background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);'>\n    <h2 style='color: #333; margin-top: 0;'>Hola {{$json.paciente_nombres}},</h2>\n    <p>Los resultados de su examen de <strong>{{$json.examen_nombre}}</strong> están disponibles.</p>\n    \n    <div style='background: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;'>\n      <h3 style='margin-top: 0; color: #065f46;'>Información del Examen</h3>\n      <table style='width: 100%;'>\n        <tr>\n          <td style='padding: 8px 0; width: 120px; font-weight: bold;'>Código Muestra:</td>\n          <td style='padding: 8px 0;'>{{$json.codigo_muestra}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Examen:</td>\n          <td style='padding: 8px 0;'>{{$json.examen_nombre}}</td>\n        </tr>\n        <tr>\n          <td style='padding: 8px 0; font-weight: bold;'>Fecha Resultado:</td>\n          <td style='padding: 8px 0;'>{{$json.fecha_resultado}}</td>\n        </tr>\n      </table>\n    </div>\n    \n    <div style='background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d97706;'>\n      <p style='margin: 0; font-size: 14px;'>\n        <strong>Importante:</strong> Estos resultados deben ser interpretados por un profesional médico. \n        Consulte con su médico para una evaluación completa.\n      </p>\n    </div>\n    \n    <p style='text-align: center; margin-top: 30px;'>\n      <a href='https://saludlaboral.pe/mis-resultados/{{$json.solicitud_id}}' style='display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;'>\n        Ver Resultados Completos\n      </a>\n    </p>\n    \n    <hr style='border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;'>\n    \n    <p style='font-size: 12px; color: #6b7280; text-align: center;'>\n      Para consultas sobre sus resultados, contáctenos al (01) 123-4567<br>\n      o programe una cita de seguimiento con su médico.\n    </p>\n  </div>\n</body></html>"
-      }
-    },
-    {
-      "name": "Notificar al Médico",
-      "type": "n8n-nodes-base.if",
-      "position": [700, 500],
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{$json.medico_email}}",
-              "operation": "notEquals",
-              "value2": ""
-            }
-          ]
-        }
-      }
-    },
-    {
-      "name": "Email al Médico",
-      "type": "n8n-nodes-base.emailSend",
-      "position": [900, 500],
-      "parameters": {
-        "fromEmail": "resultados@saludlaboral.pe",
-        "toEmail": "={{$json.medico_email}}",
-        "subject": "Nuevos Resultados de Laboratorio - {{$json.paciente_nombres}} {{$json.paciente_apellidos}}",
-        "text": "Estimado Dr. {{$json.medico_nombres}},\\n\\nLos resultados del examen de {{$json.examen_nombre}} para el paciente {{$json.paciente_nombres}} {{$json.paciente_apellidos}} están disponibles.\\n\\nPaciente: {{$json.paciente_nombres}} {{$json.paciente_apellidos}}\\nExamen: {{$json.examen_nombre}}\\nCódigo Muestra: {{$json.codigo_muestra}}\\nFecha: {{$json.fecha_resultado}}\\n\\nAcceda al sistema para revisar los resultados completos:\\nhttps://saludlaboral.pe/medical/lab-results/{{$json.solicitud_id}}\\n\\nSaludos,\\nLaboratorio Clínico"
-      }
-    },
-    {
-      "name": "Registrar Notificación",
-      "type": "n8n-nodes-base.postgres",
-      "position": [1100, 400],
-      "parameters": {
-        "operation": "insert",
-        "table": "notificaciones_resultados",
-        "columns": "solicitud_id,paciente_id,metodo,destinatario,asunto,estado",
-        "values": "={{[$json.solicitud_id, $json.paciente_id, 'email', $json.paciente_email, 'Resultados disponibles', 'enviado']}}"
-      }
-    },
-    {
+        "options": {}
+      },
       "name": "Respuesta Exitosa",
       "type": "n8n-nodes-base.respondToWebhook",
-      "position": [1300, 400],
-      "parameters": {
-        "responseBody": {
-          "success": true,
-          "message": "Notificaciones enviadas exitosamente"
-        }
-      }
+      "position": [
+        272,
+        528
+      ],
+      "id": "c989f405-936e-44cf-8d8d-92e8789f66e7",
+      "typeVersion": 1.5
     }
   ],
   "connections": {
     "Muestra Recibida": {
-      "main": [[{ "node": "Obtener Detalles Muestra", "type": "main", "index": 0 }]]
-    },
-    "Obtener Detalles Muestra": {
-      "main": [[{ "node": "Notificar Recepción al Paciente", "type": "main", "index": 0 }]]
-    },
-    "Notificar Recepción al Paciente": {
-      "main": [[{ "node": "Respuesta Exitosa", "type": "main", "index": 0 }]]
-    },
-    "Resultados Listos": {
-      "main": [[{ "node": "Obtener Detalles Resultados", "type": "main", "index": 0 }]]
-    },
-    "Obtener Detalles Resultados": {
       "main": [
-        [{ "node": "Notificar Resultados al Paciente", "type": "main", "index": 0 }],
-        [{ "node": "Notificar al Médico", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Obtener Detalles Muestra",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Notificar Resultados al Paciente": {
-      "main": [[{ "node": "Registrar Notificación", "type": "main", "index": 0 }]]
+    "Obtener Detalles Muestra": {
+      "main": [
+        [
+          {
+            "node": "Notificar Recepción al Paciente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Notificar al Médico": {
-      "main": [[{ "node": "Email al Médico", "type": "if", "index": 0 }]]
-    },
-    "Email al Médico": {
-      "main": [[{ "node": "Registrar Notificación", "type": "main", "index": 0 }]]
-    },
-    "Registrar Notificación": {
-      "main": [[{ "node": "Respuesta Exitosa", "type": "main", "index": 0 }]]
+    "Notificar Recepción al Paciente": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Exitosa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e5054d290394b13e0f87277cad44d3d391079c0dfcab7572d689702b43244a52"
   }
 }

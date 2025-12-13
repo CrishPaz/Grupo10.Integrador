@@ -182,32 +182,39 @@ const periodoGrafico = ref('7d')
 const graficoIngresos = ref<HTMLCanvasElement | null>(null)
 let chartInstance: Chart | null = null
 
-// Carga de Datos (Simulada para visualización inmediata)
+// Carga de Datos
 const cargarDatos = async () => {
-  // Aquí llamaríamos a la API real: const res = await $fetch('/api/facturacion/dashboard/stats')
-  
-  // SIMULACIÓN:
-  stats.value = {
-    facturas_hoy: 12,
-    facturas_vs_ayer: 5,
-    ingresos_hoy: 1540.50,
-    ingresos_vs_ayer: 12,
-    monto_pendiente: 450.00,
-    facturas_pendientes: 3,
-    cajas_abiertas: 1,
-    cajas_cerradas: 0
+  try {
+    // Cargar estadísticas reales
+    const statsResponse = await $fetch('/api/facturacion/dashboard/stats')
+    stats.value = statsResponse
+    
+    // Cargar facturas recientes
+    const facturasResponse = await $fetch<{ data: FacturaResumen[] }>('/api/facturacion/dashboard/recientes')
+    facturasRecientes.value = facturasResponse.data
+    
+    // SUNAT stats (aún simulado - requiere implementación futura)
+    sunatStats.value = { pendientes: 0, aceptadas: 0, rechazadas: 0 }
+    
+    actualizarGraficos()
+  } catch (error) {
+    console.error('Error cargando datos del dashboard:', error)
+    
+    // Valores por defecto en caso de error
+    stats.value = {
+      facturas_hoy: 0,
+      facturas_vs_ayer: 0,
+      ingresos_hoy: 0,
+      ingresos_vs_ayer: 0,
+      monto_pendiente: 0,
+      facturas_pendientes: 0,
+      cajas_abiertas: 0,
+      cajas_cerradas: 0
+    }
+    facturasRecientes.value = []
   }
-  
-  sunatStats.value = { pendientes: 2, aceptadas: 10, rechazadas: 0 }
-  
-  facturasRecientes.value = [
-    { id: '1', serie: 'F001', numero: 1001, receptor_razon_social: 'Minería del Sur SAC', total: 1200.00, estado_pago: 'PAGADO', fecha_emision: new Date().toISOString() },
-    { id: '2', serie: 'B001', numero: 502, receptor_razon_social: 'Juan Pérez', total: 150.00, estado_pago: 'PAGADO', fecha_emision: new Date().toISOString() },
-    { id: '3', serie: 'F001', numero: 1002, receptor_razon_social: 'Constructora Norte', total: 450.00, estado_pago: 'PENDIENTE', fecha_emision: new Date().toISOString() }
-  ]
-  
-  actualizarGraficos()
 }
+
 
 const actualizarGraficos = () => {
   if (!graficoIngresos.value) return
