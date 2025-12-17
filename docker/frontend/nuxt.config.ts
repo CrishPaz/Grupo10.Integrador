@@ -3,6 +3,12 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
 
+  // --- AGREGADO PARA ARREGLAR LA LANDING PAGE ---
+  routeRules: {
+    '/': { ssr: false }, // Desactiva SSR solo en el inicio para evitar error de hidratación
+  },
+  // ----------------------------------------------
+
   // Módulos
   modules: [
     '@nuxtjs/tailwindcss',
