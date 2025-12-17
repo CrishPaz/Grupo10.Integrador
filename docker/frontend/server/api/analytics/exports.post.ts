@@ -82,7 +82,7 @@ export default defineEventHandler(async (event: H3Event) => {
     } catch (error) {
       if (browser) await browser.close()
       console.error('PDF Generation Error:', error)
-      throw createError({ statusCode: 500, message: 'Error generating PDF: ' + error.message })
+      throw createError({ statusCode: 500, message: 'Error generating PDF: ' + (error as Error).message })
     }
   }
 

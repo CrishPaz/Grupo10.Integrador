@@ -29,8 +29,10 @@ export const useAuthStore = defineStore('auth', {
           this.token = data.token
 
           // Guardar en localStorage
-          localStorage.setItem('auth_token', data.token)
-          localStorage.setItem('user', JSON.stringify(data.user))
+          if (process.client) {
+            localStorage.setItem('auth_token', data.token)
+            localStorage.setItem('user', JSON.stringify(data.user))
+          }
 
           return { success: true }
         }
@@ -56,8 +58,10 @@ export const useAuthStore = defineStore('auth', {
           this.user = data.user
           this.token = data.token
 
-          localStorage.setItem('auth_token', data.token)
-          localStorage.setItem('user', JSON.stringify(data.user))
+          if (process.client) {
+            localStorage.setItem('auth_token', data.token)
+            localStorage.setItem('user', JSON.stringify(data.user))
+          }
 
           return { success: true }
         }
@@ -83,6 +87,8 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async checkAuth() {
+      if (process.server) return false
+
       const token = localStorage.getItem('auth_token')
       const storedUser = localStorage.getItem('user')
 
@@ -113,14 +119,18 @@ export const useAuthStore = defineStore('auth', {
     clearAuth() {
       this.user = null
       this.token = null
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('user')
+      if (process.client) {
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('user')
+      }
     },
 
     updateUser(updates: Partial<Usuarios>) {
       if (this.user) {
         this.user = { ...this.user, ...updates }
-        localStorage.setItem('user', JSON.stringify(this.user))
+        if (process.client) {
+          localStorage.setItem('user', JSON.stringify(this.user))
+        }
       }
     }
   }

@@ -108,7 +108,13 @@ const router = useRouter()
 const handleLogin = async () => {
   isLoading.value = true
   try {
-    await login(email.value, password.value)
+    const result = await login(email.value, password.value)
+    
+    if (!result || !result.success) {
+      isLoading.value = false
+      alert(result?.error || 'Credenciales inválidas ❌')
+      return
+    }
     
     setTimeout(() => {
       const user = useAuth().user.value
@@ -122,7 +128,8 @@ const handleLogin = async () => {
     }, 500)
   } catch (error) {
     isLoading.value = false
-    alert('Credenciales inválidas ❌')
+    console.error(error)
+    alert('Ocurrió un error inesperado al intentar ingresar')
   }
 }
 </script>
